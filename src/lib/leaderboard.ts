@@ -236,7 +236,7 @@ async function playerGains(opts: Opts, country: string | null, excluded: string[
         CAST((p."platinum" + p."gold" + p."silver" + p."bronze") - ${baseline("trophies")} AS INTEGER) AS trophies
       FROM "PsnPlayer" p
       WHERE ${Prisma.join(filters, " AND ")}
-    ) WHERE points > 0
+    ) AS gains WHERE points > 0
     ORDER BY ${order}
     LIMIT ${limit}
   `;
@@ -276,7 +276,11 @@ async function memberBoard(opts: Opts & { metric: Metric }, limit: number): Prom
     completion: Prisma.sql`completion DESC, games DESC`,
   }[metric];
 
-  const having = metric === "completion" ? Prisma.sql`HAVING games >= ${COMPLETION_MIN_GAMES}` : Prisma.empty;
+  // PostgreSQL can't use a column alias in HAVING, so repeat the expression.
+  const having =
+    metric === "completion"
+      ? Prisma.sql`HAVING (SELECT COUNT(*) FROM "UserGame" ug WHERE ug."userId" = u."id") >= ${COMPLETION_MIN_GAMES}`
+      : Prisma.empty;
 
   const rows = await prisma.$queryRaw<MemberRaw[]>`
     SELECT
@@ -293,7 +297,7 @@ async function memberBoard(opts: Opts & { metric: Metric }, limit: number): Prom
     JOIN "User" u ON u."id" = ut."userId"
     LEFT JOIN "PsnAccount" p ON p."userId" = u."id"
     WHERE ${where}
-    GROUP BY u."id"
+    GROUP BY u."id", p."onlineId", p."avatarUrl", p."accountId"
     ${having}
     ORDER BY ${orderBy}
     LIMIT ${limit}

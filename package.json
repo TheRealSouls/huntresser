@@ -20,6 +20,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "demo:user": "tsx scripts/demo-user.ts",
     "db:recompute-progress": "tsx scripts/recompute-progress.ts",
+    "db:from-sqlite": "tsx scripts/sqlite-to-postgres.ts",
     "db:backfill-titles": "tsx scripts/backfill-titles.ts"
   },
   "prisma": {

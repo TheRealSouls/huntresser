@@ -27,7 +27,7 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
   const sort = sp.sort && sp.sort in SORTS ? sp.sort : "popular";
 
   const where: Prisma.GameWhereInput = {
-    ...(sp.q ? { title: { contains: sp.q } } : {}),
+    ...(sp.q ? { title: { contains: sp.q, mode: "insensitive" } } : {}),
     ...(sp.platform ? { platforms: { contains: sp.platform } } : {}),
     ...(sp.genre ? { genre: sp.genre } : {}),
     ...(sp.online === "0" ? { hasOnlineTrophies: false } : {}),

@@ -39,7 +39,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     ? await Promise.all([
         want("games")
           ? prisma.game.findMany({
-              where: { OR: [{ title: { contains: q } }, { developer: { contains: q } }, { publisher: { contains: q } }] },
+              where: { OR: [{ title: { contains: q, mode: "insensitive" } }, { developer: { contains: q, mode: "insensitive" } }, { publisher: { contains: q, mode: "insensitive" } }] },
               // PSN has a separate trophy list per platform and region; show each game once.
               distinct: ["titleKey"],
               take,
@@ -51,7 +51,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               // Hidden trophies only match on their exact name, so search doesn't leak spoilers.
               where: {
                 OR: [
-                  { hidden: false, OR: [{ name: { contains: q } }, { description: { contains: q } }] },
+                  { hidden: false, OR: [{ name: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] },
                   { hidden: true, name: q },
                 ],
               },
@@ -62,14 +62,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           : [],
         want("users")
           ? prisma.user.findMany({
-              where: { OR: [{ username: { contains: q.toLowerCase() } }, { psn: { onlineId: { contains: q } } }] },
+              where: { OR: [{ username: { contains: q.toLowerCase(), mode: "insensitive" } }, { psn: { onlineId: { contains: q, mode: "insensitive" } } }] },
               take,
               include: { psn: true, _count: { select: { games: { where: { hasPlatinum: true } } } } },
             })
           : [],
         want("guides")
           ? prisma.guide.findMany({
-              where: { OR: [{ title: { contains: q } }, { summary: { contains: q } }, { game: { title: { contains: q } } }] },
+              where: { OR: [{ title: { contains: q, mode: "insensitive" } }, { summary: { contains: q, mode: "insensitive" } }, { game: { title: { contains: q, mode: "insensitive" } } }] },
               take,
               include: { game: true, author: true },
               orderBy: { views: "desc" },
@@ -79,7 +79,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           ? prisma.session.findMany({
               where: {
                 startsAt: { gte: new Date() },
-                OR: [{ title: { contains: q } }, { description: { contains: q } }, { game: { title: { contains: q } } }],
+                OR: [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }, { game: { title: { contains: q, mode: "insensitive" } } }],
               },
               take,
               include: { game: true, _count: { select: { members: true } } },

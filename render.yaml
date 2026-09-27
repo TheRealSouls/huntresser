@@ -1,34 +1,31 @@
-# Render Blueprint: a free sample deployment of Huntresser in demo mode.
-#
-# The build creates a SQLite database and seeds the fictional demo catalogue,
-# users and guides into it, so every start (including after the free
-# instance sleeps) begins from the same sample data. Anything visitors change
-# is reset on the next restart or deploy. See README, "Deploying to Render",
-# for the live-PSN setup with a persistent disk.
+# Render Blueprint: free web service. The data lives in a free Neon
+# PostgreSQL database (set DATABASE_URL when Render asks), so it survives
+# restarts and sleeping. See README, "Deploying for free (Render + Neon)".
 services:
   - type: web
     name: huntresser
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm ci --include=dev && npx prisma db push && npm run db:seed && npm run build
+    # db push creates/updates the tables; it refuses changes that would delete data, which fails the build safely.
+    buildCommand: npm ci --include=dev && npx prisma db push && npm run demo:user && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Neon connection string (direct, not pooled): postgresql://...neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
-        value: file:./demo.db
-      - key: SESSION_SECRET
-        generateValue: true
-      - key: CRON_SECRET
-        generateValue: true
-      # Leave empty for demo mode. Set it (and move to a persistent disk) for live PSN data.
+        sync: false
       - key: PSN_NPSSO
         sync: false
       - key: NEXT_PUBLIC_SITE_URL
         sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
       - key: SITE_OPERATOR_NAME
         sync: false
       - key: SITE_CONTACT_EMAIL

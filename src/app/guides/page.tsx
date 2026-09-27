@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Trophy Guides", description: "Commun
 export default async function GuidesPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
   const { q, sort = "popular" } = await searchParams;
   const guides = await prisma.guide.findMany({
-    where: q ? { OR: [{ title: { contains: q } }, { game: { title: { contains: q } } }] } : undefined,
+    where: q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { game: { title: { contains: q, mode: "insensitive" } } }] } : undefined,
     orderBy: sort === "new" ? { createdAt: "desc" } : sort === "easy" ? { difficulty: "asc" } : { views: "desc" },
     include: { game: true, author: { include: { psn: true } }, _count: { select: { steps: true, tips: true } } },
   });

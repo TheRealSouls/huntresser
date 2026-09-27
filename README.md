@@ -7,7 +7,8 @@ from PSN, community guides, leaderboards and search.
 
 ```bash
 npm install
-npm run setup      # creates the SQLite DB and seeds demo data
+# put a PostgreSQL connection string in .env as DATABASE_URL (see "Database" below)
+npm run setup      # creates the tables and seeds demo data
 npm run dev        # http://localhost:3000
 ```
 
@@ -167,7 +168,7 @@ list count, and every game page has a switcher between its lists. After changing
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS v4. Design tokens live in `src/app/globals.css` (`@theme`) |
 | Type | IBM Plex Mono throughout |
-| Database | Prisma 6 + SQLite in dev. For production set `provider = "postgresql"` in `prisma/schema.prisma` |
+| Database | Prisma 6 + PostgreSQL (Neon free tier works) |
 | Auth | bcrypt password hashes and an HS256 JWT in an httpOnly cookie (`jose`) |
 | Validation | Zod in every server action |
 | PSN | `psn-api` behind a `TrophyProvider` interface, with real and mock providers |
@@ -188,53 +189,43 @@ list count, and every game page has a switcher between its lists. After changing
 | Terms and privacy policy | `/terms`, `/privacy` (operator details come from `SITE_*` env vars) |
 | Contact form (Formspree) | `/contact`, `?topic=removal` or `?topic=privacy` preselects a topic |
 
-## Deploying to Render
+## Database
 
-### Free sample site (demo mode)
+The app uses PostgreSQL. The free tier of [Neon](https://neon.tech) is enough; any PostgreSQL 14+ works. Put the connection
+string in `DATABASE_URL` and run `npx prisma db push` to create the tables.
 
-The repo includes `render.yaml`. The build creates a SQLite database with the fictional demo data, so the site works
-without any PSN token, and every restart goes back to that sample data (Render's free disk isn't kept between
-restarts, and free instances sleep after 15 minutes idle).
+Use Neon's **direct** connection string (turn "Connection pooling" off in Neon's Connect dialog). The pooled one breaks
+`prisma db push`.
 
-1. Push the repo to GitHub (done: `TheRealSouls/huntresser`).
-2. Sign in at <https://dashboard.render.com> with GitHub and allow Render to read the repository.
-3. Click **New**, then **Blueprint**, pick the `huntresser` repo and branch `main`. Render reads `render.yaml`.
-4. It asks for the variables marked `sync: false`. Leave `PSN_NPSSO` empty. Set `NEXT_PUBLIC_SITE_URL` to
-   `https://huntresser.onrender.com` (or whatever name Render gives you; you can change it after the first deploy),
-   and optionally `SITE_OPERATOR_NAME` and `SITE_CONTACT_EMAIL`.
-5. Click **Apply**. The first build takes a few minutes (install, seed, `next build`). Watch it under the service's
-   **Logs** tab.
-6. When it says **Live**, open the URL, log in with `demo@huntresser.gg` / `trophyhunter`, and check
-   `/api/health` returns `{"ok":true,"mode":"demo"}`.
-7. Optional: from your machine, `npm run smoke -- https://your-service.onrender.com` (it needs the local demo login too:
-   run `npm run demo:user` first).
-8. In Formspree, add your Render domain to the form's allowed domains.
+Moving from an old SQLite `prisma/dev.db`: point `DATABASE_URL` at an empty PostgreSQL database, run
+`npx prisma db push`, then `npm run db:from-sqlite`. It copies every table, then prints row counts.
 
-Every push to `main` redeploys automatically. If a build fails with an out-of-memory error, switch the service to the
-Starter plan.
+## Deploying for free (Render + Neon)
 
-### Live site with real PSN data
+Render hosts the website, Neon holds the data. Both have free plans that don't need a card.
 
-Live data has to survive restarts, so it needs a persistent disk, which Render only offers on paid instances.
+1. **Create the database.** Sign up at neon.tech, create a project (pick the Frankfurt region to match Render), open
+   **Connect**, switch **Connection pooling** off, and copy the connection string.
+2. **Optional: bring your local data.** In `.env`, set `DATABASE_URL` to that string, then run
+   `npx prisma db push` and `npm run db:from-sqlite`.
+3. **Create the website.** At dashboard.render.com: **New**, then **Blueprint**, pick `TheRealSouls/huntresser`.
+4. When Render asks for values: `DATABASE_URL` is the Neon string, `PSN_NPSSO` is your token, and
+   `NEXT_PUBLIC_SITE_URL` is `https://huntresser.onrender.com` (or the address Render shows).
+5. Click **Apply** and wait for **Live**. `/api/health` should show `"mode":"live"`.
+6. **Keep data fresh (optional).** At cron-job.org, add two jobs every 10 minutes, each with the header
+   `Authorization: Bearer <CRON_SECRET>` (copy it from Render, **Environment**):
+   `https://<your-site>/api/cron/sync` and `https://<your-site>/api/cron/players`. They also wake the site so it
+   isn't asleep when people visit.
+7. In Formspree, add the Render address to the form's allowed domains.
 
-1. Deploy the blueprint as above, then open the service's **Settings** and change the instance type to **Starter**.
-2. Under **Disks**, add a disk: mount path `/var/data`, 1 GB.
-3. Under **Environment**, set `DATABASE_URL` to `file:/var/data/huntresser.db` and `PSN_NPSSO` to your token.
-4. Change the **Build Command** to `npm ci --include=dev && npm run build` (no demo seed) and the **Start Command** to
-   `npx prisma db push --skip-generate && npm start` (the disk only exists at runtime, so the schema is applied at start).
-5. Save and redeploy. Then, from the service's **Shell** tab: `npm run demo:user` (optional) and
-   `npm run psn:track -- GamingWithFlacy ikemenzi` to seed the leaderboards.
-6. Schedule the background jobs. Render cron jobs can't reach a web service's disk, so call the HTTP endpoints from a free
-   scheduler such as cron-job.org, every 10 minutes, with the header `Authorization: Bearer <CRON_SECRET>` (copy the
-   value from the Environment tab):
-   - `https://your-service.onrender.com/api/cron/sync` (members' trophies)
-   - `https://your-service.onrender.com/api/cron/players` (tracked players, weekly boards, platinum feed)
-7. Back up the database now and then: from the Shell tab, `cp /var/data/huntresser.db /var/data/backup-$(date +%F).db`, or
-   move to PostgreSQL (see below) for managed backups.
+Free Render sites sleep after 15 minutes without visitors; the first request afterwards takes up to a minute. The data is
+in Neon, so nothing is lost while it sleeps.
 
-To use PostgreSQL instead of SQLite, set `provider = "postgresql"` in `prisma/schema.prisma`, point `DATABASE_URL` at the
-database, and drop the disk. The raw SQL in the app is written to work on both. Text search becomes case-sensitive on
-PostgreSQL, so add `mode: "insensitive"` to the `contains` filters when you switch.
+**Local development** can use the same Neon database, but then everything you do locally happens on the live site, and
+`npm run db:reset` would wipe it. Safer: in Neon, **Branches**, **Create branch** (call it `dev`), and put the `dev`
+branch's connection string in your local `.env`. A branch starts as a copy of the live data.
+
+Every push to `main` redeploys automatically.
 
 ## Production checklist
 
@@ -242,7 +233,6 @@ PostgreSQL, so add `mode: "insensitive"` to the `contains` filters when you swit
 - Contact messages go to Formspree form `NEXT_PUBLIC_FORMSPREE_FORM_ID` (default `xljdozjl`). In the Formspree dashboard,
   restrict the form to your production domain and turn on its spam filtering. The form also sends a `_gotcha` honeypot.
 - Have the terms and privacy policy reviewed for your jurisdiction before launch.
-- Switch Prisma to PostgreSQL.
 - The rate limiter in `src/lib/rate-limit.ts` is in-memory. Replace it with Redis (or similar) if you run more than one instance.
 - Security headers are set in `next.config.ts`. Serve the site over HTTPS only.
 
@@ -250,7 +240,7 @@ PostgreSQL, so add `mode: "insensitive"` to the `contains` filters when you swit
 
 ```
 prisma/            schema, fictional demo catalogue, seed script
-scripts/           psn-check, psn-import, psn-track, psn-discover, demo-user, smoke, recompute-progress and backfill-titles
+scripts/           psn-check, psn-import, psn-track, psn-discover, demo-user, smoke, recompute-progress, backfill-titles, sqlite-to-postgres
 src/actions/       server actions (auth, account and PSN, friends, community)
 src/lib/           db, auth, trophy maths, stats, leaderboards, privacy, rate limiting, PSN providers, lookup and catalogue
 src/components/    UI kit, skeletons, trophy list, tips, generated art

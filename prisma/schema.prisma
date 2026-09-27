@@ -1,13 +1,12 @@
 // Huntresser data model.
-// SQLite in dev; switch `provider` to "postgresql" for production (enums are
-// modelled as strings so the schema stays portable).
+// PostgreSQL (Neon's free tier works well). Enums are modelled as strings.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
