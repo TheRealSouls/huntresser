@@ -14,3 +14,16 @@ export function flag(code: string | null | undefined) {
   if (!code || code.length !== 2) return "";
   return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0)));
 }
+
+const displayNames = new Intl.DisplayNames(["en-GB"], { type: "region" });
+
+/** Name for any ISO country code, including PSN regions missing from COUNTRIES. */
+export function countryName(code: string | null | undefined) {
+  if (!code) return "";
+  if (COUNTRIES[code]) return COUNTRIES[code];
+  try {
+    return displayNames.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}

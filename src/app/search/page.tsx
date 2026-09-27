@@ -317,7 +317,16 @@ async function PsnPlayers({ q, live, limit, more }: { q: string; live: boolean; 
       </ResultGroup>
     );
   }
-  const players = res.data.slice(0, limit);
+  const hiddenIds = new Set(
+    (
+      await prisma.psnPlayer.findMany({
+        where: { hidden: true, accountId: { in: res.data.map((p) => p.accountId) } },
+        select: { accountId: true },
+      })
+    ).map((h) => h.accountId),
+  );
+  const visible = res.data.filter((p) => !hiddenIds.has(p.accountId));
+  const players = visible.slice(0, limit);
   if (players.length === 0) {
     return (
       <ResultGroup title="PSN players" show>
@@ -333,7 +342,7 @@ async function PsnPlayers({ q, live, limit, more }: { q: string; live: boolean; 
   const memberOf = new Map(members.map((m) => [m.accountId, m.user.username]));
 
   return (
-    <ResultGroup title="PSN players" show more={more && res.data.length > limit ? more : undefined}>
+    <ResultGroup title="PSN players" show more={more && visible.length > limit ? more : undefined}>
       <ul className="grid gap-px border border-line bg-line sm:grid-cols-2">
         {players.map((p) => {
           const username = memberOf.get(p.accountId);

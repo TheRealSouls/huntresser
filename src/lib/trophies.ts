@@ -23,6 +23,9 @@ export function rarityOf(earnedRate: number): { key: RarityKey; label: string } 
 
 export const ULTRA_RARE_MAX = 5;
 
+/** PSN trophy levels stop at 999; there is no level 1000. */
+export const MAX_TROPHY_LEVEL = 999;
+
 /**
  * Approximation of the PS5 trophy level curve: points required per level grow
  * in bands of 100 levels.
@@ -50,7 +53,7 @@ export function levelFromPoints(points: number): { level: number; progress: numb
     }
     if (level <= maxLevel) return { level, progress: Math.floor((remaining / per) * 100) };
   }
-  return { level: 999, progress: 100 };
+  return { level: MAX_TROPHY_LEVEL, progress: 100 };
 }
 
 export function pointsFor(counts: { platinum: number; gold: number; silver: number; bronze: number }) {

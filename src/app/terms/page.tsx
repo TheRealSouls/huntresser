@@ -42,8 +42,9 @@ export default function TermsPage() {
         <h2>4. Public PSN profiles</h2>
         <p>
           Anyone can look up a public PSN profile on the site. We show the same information PSN makes public (Online ID, avatar,
-          trophy level and trophy lists) and don&apos;t store a player&apos;s trophy history unless they link their account. If
-          you&apos;d like your PSN profile hidden from lookups, set your PSN trophies to private or email{" "}
+          trophy level and trophy lists). Players we&apos;ve seen appear on the all-time global and country leaderboards using the
+          public totals PSN reports; we don&apos;t store their game-by-game trophy history unless they link their account. If
+          you&apos;d like your PSN profile removed from lookups and leaderboards, set your PSN trophies to private or email{" "}
           <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
         </p>
 

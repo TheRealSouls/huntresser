@@ -6,7 +6,7 @@ import type { FriendState } from "@/lib/social";
 import type { UserStats } from "@/lib/stats";
 import { formatDate, formatNumber, timeAgo } from "@/lib/utils";
 import { TrophyCounts } from "@/components/TrophyIcon";
-import { Avatar, ProgressBar, Stat, StatGrid } from "@/components/ui";
+import { Avatar, LevelMeter, Stat, StatGrid } from "@/components/ui";
 import { ConfirmButton, SubmitButton } from "@/components/client";
 
 type Owner = {
@@ -17,7 +17,14 @@ type Owner = {
   avatarHue: number;
   createdAt: Date;
   profileVisibility: string;
-  psn: { onlineId: string; avatarUrl: string | null; verified: boolean; lastSyncedAt: Date | null } | null;
+  psn: {
+    onlineId: string;
+    avatarUrl: string | null;
+    verified: boolean;
+    lastSyncedAt: Date | null;
+    trophyLevel: number;
+    levelProgress: number;
+  } | null;
 };
 
 export async function ProfileHeader({
@@ -32,6 +39,10 @@ export async function ProfileHeader({
   viewerId: string | null;
 }) {
   const display = owner.psn?.verified ? owner.psn.onlineId : owner.username;
+  // A real PSN sync stores Sony's own level; otherwise fall back to our estimate from synced trophies.
+  const psnLevel = owner.psn?.verified && owner.psn.trophyLevel > 1 ? owner.psn : null;
+  const level = psnLevel?.trophyLevel ?? stats?.level ?? 1;
+  const progress = psnLevel?.levelProgress ?? stats?.progress ?? 0;
   const incoming =
     relation === "INCOMING"
       ? await prisma.friendship.findFirst({ where: { requesterId: owner.id, addresseeId: viewerId!, status: "PENDING" } })
@@ -99,11 +110,8 @@ export async function ProfileHeader({
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-line px-5 py-3 sm:px-6">
             <div className="flex items-center gap-3">
               <span className="text-[11px] uppercase tracking-wider text-muted">Level</span>
-              <span className="text-2xl font-bold tabular-nums">{stats.level}</span>
-              <div className="w-32">
-                <ProgressBar value={stats.progress} />
-                <div className="mt-1 text-[11px] text-muted">{stats.progress}% · {formatNumber(stats.points)} pts</div>
-              </div>
+              <span className="text-2xl font-bold tabular-nums">{level}</span>
+              <LevelMeter level={level} progress={progress} detail={`${formatNumber(stats.points)} pts`} className="w-40" />
             </div>
             <TrophyCounts {...stats} size={18} className="flex-wrap" />
           </div>

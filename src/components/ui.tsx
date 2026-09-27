@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { rarityOf } from "@/lib/trophies";
+import { MAX_TROPHY_LEVEL, rarityOf } from "@/lib/trophies";
 import { artHue } from "@/lib/utils";
 
 export function Avatar({
@@ -48,6 +48,20 @@ export function ProgressBar({ value, className, tone = "accent" }: { value: numb
   return (
     <div className={clsx("h-1.5 w-full bg-surface-3", className)} role="progressbar" aria-valuenow={v} aria-valuemin={0} aria-valuemax={100}>
       <div className={clsx("h-full", color)} style={{ width: `${v}%` }} />
+    </div>
+  );
+}
+
+/** Trophy level with progress to the next one. Level 999 is the cap, so it shows a full bar instead. */
+export function LevelMeter({ level, progress, detail, className }: { level: number; progress: number; detail?: ReactNode; className?: string }) {
+  const maxed = level >= MAX_TROPHY_LEVEL;
+  return (
+    <div className={className}>
+      <ProgressBar value={maxed ? 100 : progress} tone={maxed ? "plat" : "accent"} />
+      <div className="mt-1 text-[11px] text-muted">
+        {maxed ? "Max level" : `${progress}% to level ${level + 1}`}
+        {detail && <> · {detail}</>}
+      </div>
     </div>
   );
 }

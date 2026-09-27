@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { recomputeUserGame } from "../progress";
 import { ensureGameTrophies, importTitles } from "./catalogue";
 import { MockPsnProvider } from "./mock";
+import { recordPlayer } from "./players";
 import { RealPsnProvider } from "./real";
 import type { PsnTitle, TrophyProvider } from "./types";
 
@@ -107,6 +108,20 @@ export async function syncUser(userId: string, { force = false }: { force?: bool
       });
       gamesSynced++;
       trophiesSynced += toCreate.length;
+    }
+
+    // Sony's own totals feed the all-time leaderboards, even while a big library is still importing.
+    if (profile?.earned && provider.name === "psn") {
+      await recordPlayer({
+        accountId: psn.accountId,
+        onlineId: profile.onlineId,
+        avatarUrl: profile.avatarUrl,
+        country: profile.country ?? null,
+        isPlus: !!profile.isPlus,
+        trophyLevel: profile.trophyLevel,
+        levelProgress: profile.levelProgress,
+        earned: profile.earned,
+      });
     }
 
     await prisma.psnAccount.update({

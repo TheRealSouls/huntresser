@@ -10,6 +10,7 @@ import {
   type AuthTokensResponse,
 } from "psn-api";
 import type { TrophyType } from "../trophies";
+import { countryFromNpId } from "./players";
 import type { PsnTitle, TrophyProvider } from "./types";
 
 /**
@@ -105,8 +106,11 @@ export class RealPsnProvider implements TrophyProvider {
         accountId: profile.accountId,
         avatarUrl: avatar?.avatarUrl ?? null,
         aboutMe: profile.aboutMe ?? "",
-        trophyLevel: profile.trophySummary?.level ?? 1,
+        trophyLevel: profile.trophySummary?.level ?? 0,
         levelProgress: profile.trophySummary?.progress ?? 0,
+        country: countryFromNpId(profile.npId),
+        isPlus: profile.plus === 1,
+        earned: profile.trophySummary?.earnedTrophies,
       };
     } catch (err) {
       const e = toPsnError(err);

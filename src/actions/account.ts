@@ -155,6 +155,8 @@ export async function deleteAccount(_: FormState, fd: FormData): Promise<FormSta
   if (!(await bcrypt.compare(password, full.passwordHash))) return { error: "That password is incorrect." };
   if (fd.get("confirm") !== user.username) return { error: `Type your username (${user.username}) to confirm.` };
 
+  // Their public PSN summary goes too, so they drop off the leaderboards.
+  if (user.psn?.accountId) await prisma.psnPlayer.deleteMany({ where: { accountId: user.psn.accountId } });
   await prisma.user.delete({ where: { id: user.id } });
   await destroySession();
   redirect("/?deleted=1");

@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { getProfileFromUserName, getUserTitles, makeUniversalSearch } from "psn-api";
+import { countryFromNpId, markTrophiesPrivate, recordPlayerQuietly } from "./players";
 import { psnAuth, PsnError, toPsnError, withTimeout } from "./real";
 import type { PsnTitle } from "./types";
 
@@ -20,6 +21,7 @@ export type PsnPlayer = {
 };
 
 export type PsnPublicProfile = PsnPlayer & {
+  country: string | null;
   aboutMe: string;
   verified: boolean;
   trophyLevel: number;
@@ -62,23 +64,28 @@ const loadProfile = unstable_cache(
       const { profile } = await withTimeout(getProfileFromUserName(await psnAuth(), onlineId));
       const avatar = profile.avatarUrls?.find((a) => a.size === "l") ?? profile.avatarUrls?.at(-1);
       const e = profile.trophySummary?.earnedTrophies;
-      return {
+      const result: PsnPublicProfile = {
         onlineId: profile.onlineId,
         accountId: profile.accountId,
         avatarUrl: avatar?.avatarUrl ?? null,
+        country: countryFromNpId(profile.npId),
         isPlus: profile.plus === 1,
         verified: !!profile.isOfficiallyVerified,
         aboutMe: profile.aboutMe ?? "",
-        trophyLevel: profile.trophySummary?.level ?? 1,
+        // No summary means the player's trophies are private.
+        trophyLevel: profile.trophySummary?.level ?? 0,
         levelProgress: profile.trophySummary?.progress ?? 0,
         earned: { platinum: e?.platinum ?? 0, gold: e?.gold ?? 0, silver: e?.silver ?? 0, bronze: e?.bronze ?? 0 },
       };
+      // Every profile we fetch feeds the leaderboards. This runs once per cache miss.
+      await recordPlayerQuietly(result);
+      return result;
     } catch (err) {
       if (toPsnError(err).kind === "not_found") return null;
       throw toPsnError(err);
     }
   },
-  ["psn-profile-v1"],
+  ["psn-profile-v2"],
   { revalidate: PROFILE_TTL, tags: ["psn"] },
 );
 
@@ -92,9 +99,13 @@ const loadTitles = unstable_cache(
       res = await withTimeout(getUserTitles(await psnAuth(), accountId, { limit }));
     } catch (err) {
       const e = toPsnError(err);
-      if (e.kind === "private") return "private";
+      if (e.kind === "private") {
+        await markTrophiesPrivate(accountId, true);
+        return "private";
+      }
       throw e;
     }
+    await markTrophiesPrivate(accountId, false);
     return res.trophyTitles.map((t) => ({
       npCommunicationId: t.npCommunicationId,
       npServiceName: t.npServiceName,

@@ -103,6 +103,34 @@ model PsnTitleSync {
   @@id([userId, npCommunicationId])
 }
 
+// Public PSN summary of every player the site has seen (profile lookups,
+// imports and member syncs). All-time global and country leaderboards rank
+// these real totals, so they include top hunters who never signed up.
+model PsnPlayer {
+  accountId       String   @id
+  onlineId        String
+  avatarUrl       String?
+  country         String? // ISO 3166-1 alpha-2, decoded from the PSN npId
+  isPlus          Boolean  @default(false)
+  trophyLevel     Int      @default(1)
+  levelProgress   Int      @default(0)
+  platinum        Int      @default(0)
+  gold            Int      @default(0)
+  silver          Int      @default(0)
+  bronze          Int      @default(0)
+  points          Int      @default(0)
+  // Trophy list set to private on PSN: kept off the boards.
+  trophiesPrivate Boolean  @default(false)
+  // Asked to be removed from Huntresser (see terms, section 4).
+  hidden          Boolean  @default(false)
+  firstSeenAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([points])
+  @@index([country, points])
+  @@index([onlineId])
+}
+
 // ─── Game database ───────────────────────────────────────────────────────────
 
 model Game {

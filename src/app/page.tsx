@@ -134,11 +134,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </SectionTitle>
           <ol className="divide-y divide-line border-y border-line">
             {weekly.map((r) => (
-              <li key={r.userId} className="flex items-center gap-3 py-2.5">
+              <li key={r.key} className="flex items-center gap-3 py-2.5">
                 <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}.</span>
-                <Avatar name={r.username} hue={r.avatarHue} url={r.avatarUrl} size={28} />
-                <Link href={`/u/${r.username}`} className="flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
-                  {r.onlineId ?? r.username} <span className="text-xs">{flag(r.country)}</span>
+                <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={28} />
+                <Link href={r.href} className="flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                  {r.name} <span className="text-xs">{flag(r.country)}</span>
                 </Link>
                 <span className="text-xs tabular-nums text-muted">{formatNumber(r.points)} pts</span>
               </li>

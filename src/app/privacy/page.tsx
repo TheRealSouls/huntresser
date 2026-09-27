@@ -39,10 +39,18 @@ export default function PrivacyPage() {
             Your IP address, briefly held in memory to rate limit logins and PSN lookups. It isn&apos;t written to our database.
           </li>
         </ul>
-        <h3>Public PSN lookups</h3>
+        <h3>Public PSN profiles of people without an account</h3>
         <p>
-          When someone looks up a public PSN profile, we fetch it from PSN and cache it for up to 15 minutes. We don&apos;t save that
-          player&apos;s trophy history. We do add the games on their list to our game catalogue, which contains no personal data.
+          When someone looks up a public PSN profile, we fetch it from PSN and cache the page for up to 15 minutes. To rank players on
+          the all-time global and country leaderboards, we also keep a short public summary: Online ID, PSN account ID, avatar, the
+          country of the PSN account, PS Plus status, trophy level and trophy counts. We don&apos;t save their game-by-game trophy
+          history, and the games on their list only feed our game catalogue, which contains no personal data.
+        </p>
+        <p>
+          If a player&apos;s trophies are private on PSN, we don&apos;t rank them. Anyone can ask us to remove their PSN profile from
+          the site entirely by emailing <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>; we then hide it from
+          lookups, search and leaderboards. We keep this summary because it lets the leaderboards show the real top players
+          (our legitimate interest), and it only contains information PSN already shows publicly.
         </p>
 
         <h2>Why we use it</h2>

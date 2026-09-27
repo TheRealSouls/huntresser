@@ -7,6 +7,10 @@ export type PsnProfileData = {
   aboutMe: string;
   trophyLevel: number;
   levelProgress: number;
+  /** Only the real provider knows these. */
+  country?: string | null;
+  isPlus?: boolean;
+  earned?: { platinum: number; gold: number; silver: number; bronze: number };
 };
 
 export type PsnTitle = {

@@ -15,6 +15,7 @@
     "setup:live": "prisma db push",
     "psn:check": "tsx scripts/psn-check.ts",
     "psn:import": "tsx scripts/psn-import.ts",
+    "psn:track": "tsx scripts/psn-track.ts",
     "db:backfill-titles": "tsx scripts/backfill-titles.ts"
   },
   "prisma": {

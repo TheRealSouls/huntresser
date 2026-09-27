@@ -7,6 +7,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { ensureGameTrophies, importTitles } from "../src/lib/psn/catalogue";
+import { recordPlayer } from "../src/lib/psn/players";
 import { RealPsnProvider, toPsnError } from "../src/lib/psn/real";
 
 try {
@@ -31,6 +32,18 @@ async function main() {
     if (!profile) {
       console.warn(`skip ${id}: not found on PSN`);
       continue;
+    }
+    if (profile.earned) {
+      await recordPlayer({
+        accountId: profile.accountId,
+        onlineId: profile.onlineId,
+        avatarUrl: profile.avatarUrl,
+        country: profile.country ?? null,
+        isPlus: !!profile.isPlus,
+        trophyLevel: profile.trophyLevel,
+        levelProgress: profile.levelProgress,
+        earned: profile.earned,
+      });
     }
     let titles;
     try {

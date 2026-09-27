@@ -94,6 +94,29 @@ After that, only lists that changed since the last sync are fetched.
 that are part-way through an import. Call it from any scheduler, for example every 10 minutes. Users can also press
 *Sync now* (60 s cooldown).
 
+## Leaderboards
+
+Sony has no public API that lists the best players, so the site ranks every player it has seen. Each time a PSN profile
+is fetched (a lookup on `/psn/<OnlineID>`, `psn:import`, `psn:track` or a member's sync), its public summary is stored
+in `PsnPlayer`: level, trophy counts, avatar and the country of the PSN account (decoded from the profile's `npId`).
+
+- **All-time points and platinum boards** (global and country) rank those real PSN totals, members and non-members alike.
+  Non-members link to their PSN profile page; members link to their Huntresser profile.
+- **Weekly, monthly, completion, ultra rare and friends boards** need a full trophy history, so only members who have
+  linked PSN appear on them.
+- Players whose PSN trophies are private are never ranked. Members who are private, friends-only or opted out of
+  leaderboards stay off the public boards.
+
+To fill the boards with the players you know are at the top, track them directly (one PSN request each):
+
+```bash
+npm run psn:track -- ikemenzi GamingWithFlacy
+npm run psn:track -- --file hunters.txt      # one Online ID per line
+```
+
+Re-run it (for example daily) to refresh their totals. To honour a removal request, run
+`npm run psn:track -- --hide TheirOnlineId`: they disappear from lookups, search and leaderboards.
+
 ## Trophy lists and "duplicate" games
 
 PSN gives every platform, and often every region, its own trophy list. Rainbow Six Siege has a PS4 list and a PS5 list;
@@ -145,7 +168,7 @@ list count, and every game page has a switcher between its lists. After changing
 
 ```
 prisma/            schema, fictional demo catalogue, seed script
-scripts/           psn-check, psn-import and backfill-titles CLI tools
+scripts/           psn-check, psn-import, psn-track and backfill-titles CLI tools
 src/actions/       server actions (auth, account and PSN, friends, community)
 src/lib/           db, auth, trophy maths, stats, leaderboards, privacy, rate limiting, PSN providers, lookup and catalogue
 src/components/    UI kit, skeletons, trophy list, tips, generated art
