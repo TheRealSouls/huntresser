@@ -93,10 +93,10 @@ const loadProfile = unstable_cache(
 export const getPsnProfile = (onlineId: string) => settle(() => loadProfile(onlineId));
 
 const loadTitles = unstable_cache(
-  async (accountId: string, limit: number): Promise<PsnTitleSummary[] | "private"> => {
+  async (accountId: string, limit: number, offset: number): Promise<{ titles: PsnTitleSummary[]; total: number } | "private"> => {
     let res;
     try {
-      res = await withTimeout(getUserTitles(await psnAuth(), accountId, { limit }));
+      res = await withTimeout(getUserTitles(await psnAuth(), accountId, { limit, offset }));
     } catch (err) {
       const e = toPsnError(err);
       if (e.kind === "private") {
@@ -106,7 +106,7 @@ const loadTitles = unstable_cache(
       throw e;
     }
     await markTrophiesPrivate(accountId, false);
-    return res.trophyTitles.map((t) => ({
+    const titles = res.trophyTitles.map((t) => ({
       npCommunicationId: t.npCommunicationId,
       npServiceName: t.npServiceName,
       title: t.trophyTitleName,
@@ -117,15 +117,19 @@ const loadTitles = unstable_cache(
       defined: { ...t.definedTrophies },
       lastUpdated: t.lastUpdatedDateTime,
     }));
+    return { titles, total: res.totalItemCount ?? titles.length };
   },
-  ["psn-titles-v1"],
+  ["psn-titles-v2"],
   { revalidate: PROFILE_TTL, tags: ["psn"] },
 );
 
-/** Most recently played titles first, as PSN orders them. */
-export const getPsnTitles = (accountId: string, limit = 200): Promise<Result<PsnTitleSummary[]>> =>
+/** One page of titles, most recently played first (as PSN orders them), plus the player's total. */
+export const getPsnTitles = (
+  accountId: string,
+  { limit = 200, offset = 0 } = {},
+): Promise<Result<{ titles: PsnTitleSummary[]; total: number }>> =>
   settle(async () => {
-    const r = await loadTitles(accountId, limit);
+    const r = await loadTitles(accountId, limit, offset);
     if (r === "private") throw new PsnError("private", "This player's trophies are private on PSN.");
     return r;
   });

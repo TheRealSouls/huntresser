@@ -17,6 +17,9 @@
     "psn:import": "tsx scripts/psn-import.ts",
     "psn:track": "tsx scripts/psn-track.ts",
     "psn:discover": "tsx scripts/psn-discover.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "demo:user": "tsx scripts/demo-user.ts",
+    "db:recompute-progress": "tsx scripts/recompute-progress.ts",
     "db:backfill-titles": "tsx scripts/backfill-titles.ts"
   },
   "prisma": {

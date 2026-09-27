@@ -4,7 +4,7 @@ import { TrophyIcon } from "./TrophyIcon";
 import { HiddenTrophyReveal } from "./client";
 import { ProgressBar, RarityBadge } from "./ui";
 import { TROPHY_ORDER, TROPHY_POINTS, type TrophyType } from "@/lib/trophies";
-import { formatDate } from "@/lib/utils";
+import { formatDate, secureUrl } from "@/lib/utils";
 
 type T = {
   id: string;
@@ -89,7 +89,7 @@ export function TrophyList({
                     {t.iconUrl && showSpoiler ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={t.iconUrl}
+                        src={secureUrl(t.iconUrl)}
                         alt=""
                         loading="lazy"
                         referrerPolicy="no-referrer"

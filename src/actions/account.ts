@@ -12,7 +12,10 @@ import { COUNTRIES } from "@/lib/countries";
 import { toPsnError } from "@/lib/psn/real";
 import { getProvider, syncUntilDone, syncUser } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
+import { isDemoAccount } from "@/lib/demo";
 import type { FormState } from "./auth";
+
+const DEMO_LOCKED = "The shared demo account can't do this. Create your own account to link PSN or delete an account.";
 
 export async function updateProfile(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -56,6 +59,7 @@ const onlineIdSchema = z
 
 export async function startPsnLink(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (isDemoAccount(user)) return { error: DEMO_LOCKED };
   const parsed = onlineIdSchema.safeParse(fd.get("onlineId"));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const onlineId = parsed.data;
@@ -79,6 +83,7 @@ export async function startPsnLink(_: FormState, fd: FormData): Promise<FormStat
 
 export async function verifyPsn(_: FormState): Promise<FormState> {
   const user = await requireUser();
+  if (isDemoAccount(user)) return { error: DEMO_LOCKED };
   const link = await prisma.psnAccount.findUnique({ where: { userId: user.id } });
   if (!link?.verificationCode) return { error: "Start linking first." };
 
@@ -138,6 +143,7 @@ export async function syncNow(_: FormState): Promise<FormState> {
 
 export async function unlinkPsn() {
   const user = await requireUser();
+  if (isDemoAccount(user)) return;
   await prisma.$transaction([
     prisma.userTrophy.deleteMany({ where: { userId: user.id } }),
     prisma.userGame.deleteMany({ where: { userId: user.id } }),
@@ -150,6 +156,7 @@ export async function unlinkPsn() {
 /** Permanently deletes the account and everything tied to it (cascades in the schema). */
 export async function deleteAccount(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (isDemoAccount(user)) return { error: DEMO_LOCKED };
   const password = String(fd.get("password") ?? "");
   const full = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { passwordHash: true } });
   if (!(await bcrypt.compare(password, full.passwordHash))) return { error: "That password is incorrect." };

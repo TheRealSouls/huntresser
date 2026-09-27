@@ -122,3 +122,8 @@ export function titleKey(title: string) {
       .trim()
   );
 }
+
+/** PSN hands out some image URLs (avatars) as http://; its CDN serves the same files over https. */
+export function secureUrl<T extends string | null | undefined>(url: T): T {
+  return (url ? url.replace(/^http:\/\//i, "https://") : url) as T;
+}

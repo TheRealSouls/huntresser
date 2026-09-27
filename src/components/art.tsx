@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { artHue, hashString, mulberry32 } from "@/lib/utils";
+import { artHue, hashString, mulberry32, secureUrl } from "@/lib/utils";
 
 /**
  * Game tile. Real PSN titles use their trophy icon; the fictional demo
@@ -23,7 +23,7 @@ export function GameArt({
       // PS4 icons are wide and PS5 icons are square, so letterbox rather than crop.
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={iconUrl}
+        src={secureUrl(iconUrl)}
         alt=""
         loading="lazy"
         referrerPolicy="no-referrer"

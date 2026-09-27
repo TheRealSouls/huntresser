@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/psn/sync";
 import { SITE } from "@/lib/site";
+import { isDemoAccount } from "@/lib/demo";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { unlinkPsn } from "@/actions/account";
 import { Avatar, Notice, PageHeader } from "@/components/ui";
@@ -26,6 +27,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         Your PSN link, profile, privacy and account data.
       </PageHeader>
 
+      {isDemoAccount(user) && (
+        <Notice tone="warn" className="mb-6">
+          You&apos;re using the shared demo account. Anyone can log in to it, so linking PSN and deleting the account are switched
+          off.{" "}
+          <Link href="/register" className="underline underline-offset-4">
+            Create your own account
+          </Link>{" "}
+          to link your PSN.
+        </Notice>
+      )}
+
       {welcome && (
         <Notice tone="good" className="mb-6">
           Welcome to {SITE.name}, {user.username}. Link your PSN account below to import your trophies.
@@ -35,8 +47,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <div className="space-y-6">
         <Section id="psn" title="PlayStation Network">
           <p className="mb-5 text-sm text-muted">
-            Sony doesn&apos;t let other sites sign you in with PSN, so we check that the account is yours with a one-time code
-            in your PSN About Me. You can delete the code once you&apos;re verified.
+            Sony doesn&apos;t let other sites sign you in with PSN, so we check that the account is yours with a one-time code in
+            your PSN About Me. You can delete the code once you&apos;re verified.
           </p>
 
           {demo && (
@@ -60,8 +72,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 </li>
                 <li>
                   <span className="mr-2 text-muted">2.</span>
-                  Paste it anywhere in your About Me. On PS5 that&apos;s Profile, then Edit Profile, then About Me. The PlayStation
-                  App works too.
+                  Paste it anywhere in your About Me. On PS5 that&apos;s Profile, then Edit Profile, then About Me. The
+                  PlayStation App works too.
                 </li>
                 <li>
                   <span className="mr-2 text-muted">3.</span>
@@ -87,7 +99,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                     : !jobs[0] || jobs[0].status === "RUNNING" || jobs[0].remaining > 0
                       ? "PSN verified. Your trophies are importing in the background. Big libraries take a few minutes, so refresh this page to see progress."
                       : `PSN verified and fully imported.`}{" "}
-                  <Link href={`/u/${user.username}`} className="font-semibold underline underline-offset-4">See your profile</Link>
+                  <Link href={`/u/${user.username}`} className="font-semibold underline underline-offset-4">
+                    See your profile
+                  </Link>
                 </Notice>
               )}
               <div className="flex flex-wrap items-center gap-4 border border-line p-4">
@@ -98,7 +112,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                     Verified · {psn.lastSyncedAt ? `last synced ${timeAgo(psn.lastSyncedAt)}` : "never synced"}
                   </div>
                 </div>
-                <Link href={`/u/${user.username}`} className="btn-ghost">View profile</Link>
+                <Link href={`/u/${user.username}`} className="btn-ghost">
+                  View profile
+                </Link>
               </div>
               <SyncButton />
               {jobs.length > 0 && (
@@ -130,7 +146,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               )}
               <form action={unlinkPsn} className="border-t border-line pt-4">
                 <p className="mb-2 text-xs text-muted">Unlinking deletes your synced trophy data. Your guides and tips stay.</p>
-                <ConfirmButton message="Unlink your PSN account and delete your synced trophies?">Unlink PSN account</ConfirmButton>
+                <ConfirmButton message="Unlink your PSN account and delete your synced trophies?">
+                  Unlink PSN account
+                </ConfirmButton>
               </form>
             </div>
           )}
@@ -141,12 +159,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Section>
 
         <Section title="Privacy">
-          <PrivacyForm visibility={user.profileVisibility} showOnLeaderboards={user.showOnLeaderboards} showActivity={user.showActivity} />
+          <PrivacyForm
+            visibility={user.profileVisibility}
+            showOnLeaderboards={user.showOnLeaderboards}
+            showActivity={user.showActivity}
+          />
         </Section>
 
         <Section title="Your data">
           <p className="mb-4 text-sm text-muted">
-            Download a copy of everything we store about you as JSON. The <Link href="/privacy" className="link">privacy policy</Link>{" "}
+            Download a copy of everything we store about you as JSON. The{" "}
+            <Link href="/privacy" className="link">
+              privacy policy
+            </Link>{" "}
             explains what we keep and why.
           </p>
           <a href="/api/account/export" className="btn-ghost" download>

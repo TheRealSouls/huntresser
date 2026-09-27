@@ -72,10 +72,10 @@ export default async function ProfilePage({ params, searchParams }: { params: Pr
 async function GamesTab({ userId, username, sort }: { userId: string; username: string; sort: string }) {
   const orderBy =
     sort === "progress"
-      ? [{ progress: "desc" as const }, { lastEarned: "desc" as const }]
+      ? [{ progress: "desc" as const }, { lastEarned: { sort: "desc" as const, nulls: "last" as const } }]
       : sort === "title"
         ? { game: { title: "asc" as const } }
-        : { lastEarned: "desc" as const };
+        : { lastEarned: { sort: "desc" as const, nulls: "last" as const } };
   const games = await prisma.userGame.findMany({
     where: { userId },
     orderBy,

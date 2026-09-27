@@ -12,7 +12,11 @@ npm run dev        # http://localhost:3000
 ```
 
 Demo login: `demo@huntresser.gg` / `trophyhunter`. Every seeded user has the same password. `npm run db:reset` wipes the
-database and reseeds it.
+database and reseeds it. On a live (real PSN) database, `npm run demo:user` creates just the demo login. The demo account
+can't link PSN or be deleted, because its password is public.
+
+Check everything works with `npm run smoke` (or `npm run smoke -- https://your-site`): it loads every page and API route
+as a visitor and as the demo user and reports anything that errors.
 
 Without a PSN token the site runs in **demo mode**: a simulated PSN provider and a fictional game catalogue. Nothing talks to
 Sony, which is why real players (for example GamingWithFlacy) and real games (for example Hollow Knight) don't show up.
@@ -57,7 +61,11 @@ sync their real trophies.
 
 **Things to know**
 
-- Tokens last about two months. When one expires, PSN calls fail and the server logs `[psn] auth ...`. Repeat steps 2 to 5.
+- **Does the token run out?** Yes. An NPSSO lasts about two months. The server signs in with it once, then keeps its own
+  session going with refresh tokens, so day to day it isn't used. When the refresh token expires the server signs in
+  with the NPSSO again; once the NPSSO itself has expired, that fails, PSN features show "PSN isn't responding", and the
+  server logs `[psn] auth ...`. Then repeat steps 2 to 5 and run `npm run psn:check`. Put a reminder in your calendar
+  every seven weeks. Signing out of playstation.com in the browser you took the token from also ends it early.
 - The server stores its PSN session (access and refresh tokens) in the database and shares it with scripts and cron jobs,
   so the NPSSO is only used to sign in when that session has fully expired. Signing in with the NPSSO over and over (for
   example from many short-lived processes) gets it revoked by Sony.
@@ -180,6 +188,54 @@ list count, and every game page has a switcher between its lists. After changing
 | Terms and privacy policy | `/terms`, `/privacy` (operator details come from `SITE_*` env vars) |
 | Contact form (Formspree) | `/contact`, `?topic=removal` or `?topic=privacy` preselects a topic |
 
+## Deploying to Render
+
+### Free sample site (demo mode)
+
+The repo includes `render.yaml`. The build creates a SQLite database with the fictional demo data, so the site works
+without any PSN token, and every restart goes back to that sample data (Render's free disk isn't kept between
+restarts, and free instances sleep after 15 minutes idle).
+
+1. Push the repo to GitHub (done: `TheRealSouls/huntresser`).
+2. Sign in at <https://dashboard.render.com> with GitHub and allow Render to read the repository.
+3. Click **New**, then **Blueprint**, pick the `huntresser` repo and branch `main`. Render reads `render.yaml`.
+4. It asks for the variables marked `sync: false`. Leave `PSN_NPSSO` empty. Set `NEXT_PUBLIC_SITE_URL` to
+   `https://huntresser.onrender.com` (or whatever name Render gives you; you can change it after the first deploy),
+   and optionally `SITE_OPERATOR_NAME` and `SITE_CONTACT_EMAIL`.
+5. Click **Apply**. The first build takes a few minutes (install, seed, `next build`). Watch it under the service's
+   **Logs** tab.
+6. When it says **Live**, open the URL, log in with `demo@huntresser.gg` / `trophyhunter`, and check
+   `/api/health` returns `{"ok":true,"mode":"demo"}`.
+7. Optional: from your machine, `npm run smoke -- https://your-service.onrender.com` (it needs the local demo login too:
+   run `npm run demo:user` first).
+8. In Formspree, add your Render domain to the form's allowed domains.
+
+Every push to `main` redeploys automatically. If a build fails with an out-of-memory error, switch the service to the
+Starter plan.
+
+### Live site with real PSN data
+
+Live data has to survive restarts, so it needs a persistent disk, which Render only offers on paid instances.
+
+1. Deploy the blueprint as above, then open the service's **Settings** and change the instance type to **Starter**.
+2. Under **Disks**, add a disk: mount path `/var/data`, 1 GB.
+3. Under **Environment**, set `DATABASE_URL` to `file:/var/data/huntresser.db` and `PSN_NPSSO` to your token.
+4. Change the **Build Command** to `npm ci --include=dev && npm run build` (no demo seed) and the **Start Command** to
+   `npx prisma db push --skip-generate && npm start` (the disk only exists at runtime, so the schema is applied at start).
+5. Save and redeploy. Then, from the service's **Shell** tab: `npm run demo:user` (optional) and
+   `npm run psn:track -- GamingWithFlacy ikemenzi` to seed the leaderboards.
+6. Schedule the background jobs. Render cron jobs can't reach a web service's disk, so call the HTTP endpoints from a free
+   scheduler such as cron-job.org, every 10 minutes, with the header `Authorization: Bearer <CRON_SECRET>` (copy the
+   value from the Environment tab):
+   - `https://your-service.onrender.com/api/cron/sync` (members' trophies)
+   - `https://your-service.onrender.com/api/cron/players` (tracked players, weekly boards, platinum feed)
+7. Back up the database now and then: from the Shell tab, `cp /var/data/huntresser.db /var/data/backup-$(date +%F).db`, or
+   move to PostgreSQL (see below) for managed backups.
+
+To use PostgreSQL instead of SQLite, set `provider = "postgresql"` in `prisma/schema.prisma`, point `DATABASE_URL` at the
+database, and drop the disk. The raw SQL in the app is written to work on both. Text search becomes case-sensitive on
+PostgreSQL, so add `mode: "insensitive"` to the `contains` filters when you switch.
+
 ## Production checklist
 
 - Set `SESSION_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL` and the `SITE_*` operator/contact variables.
@@ -194,7 +250,7 @@ list count, and every game page has a switcher between its lists. After changing
 
 ```
 prisma/            schema, fictional demo catalogue, seed script
-scripts/           psn-check, psn-import, psn-track, psn-discover and backfill-titles CLI tools
+scripts/           psn-check, psn-import, psn-track, psn-discover, demo-user, smoke, recompute-progress and backfill-titles
 src/actions/       server actions (auth, account and PSN, friends, community)
 src/lib/           db, auth, trophy maths, stats, leaderboards, privacy, rate limiting, PSN providers, lookup and catalogue
 src/components/    UI kit, skeletons, trophy list, tips, generated art

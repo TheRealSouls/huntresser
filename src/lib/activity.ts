@@ -20,7 +20,7 @@ const visiblePlayer = (excluded: string[]) => ({ hidden: false, trophiesPrivate:
 export type PlatinumItem = {
   key: string;
   at: Date;
-  game: { slug: string; title: string; coverHue: number; iconUrl: string | null };
+  game: { slug: string; title: string; titleKey: string; coverHue: number; iconUrl: string | null };
   player: { name: string; href: string; country: string | null };
 };
 
@@ -71,7 +71,17 @@ export async function latestPlatinums(limit = 6): Promise<PlatinumItem[]> {
       },
     });
   }
-  return items.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, limit);
+  // The PS4 and PS5 lists of one game often platinum together; show the game once per player.
+  const once = new Set<string>();
+  return items
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .filter((i) => {
+      const k = `${i.player.href}:${i.game.titleKey || i.game.slug}`;
+      if (once.has(k)) return false;
+      once.add(k);
+      return true;
+    })
+    .slice(0, limit);
 }
 
 /** Games the most distinct players (members and tracked) earned trophies in since `since`. */

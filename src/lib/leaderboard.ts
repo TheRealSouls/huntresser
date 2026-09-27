@@ -223,7 +223,7 @@ async function playerGains(opts: Opts, country: string | null, excluded: string[
       (SELECT s.${Prisma.raw(`"${col}"`)} FROM "PsnPlayerSnapshot" s WHERE s."accountId" = p."accountId" AND s."takenAt" <= ${since} ORDER BY s."takenAt" DESC LIMIT 1),
       (SELECT s.${Prisma.raw(`"${col}"`)} FROM "PsnPlayerSnapshot" s WHERE s."accountId" = p."accountId" ORDER BY s."takenAt" ASC LIMIT 1)
     )`;
-  const filters = [Prisma.sql`p."hidden" = 0`, Prisma.sql`p."trophiesPrivate" = 0`];
+  const filters = [Prisma.sql`p."hidden" = FALSE`, Prisma.sql`p."trophiesPrivate" = FALSE`];
   if (country) filters.push(Prisma.sql`p."country" = ${country}`);
   if (excluded.length) filters.push(Prisma.sql`p."accountId" NOT IN (${Prisma.join(excluded)})`);
   const order = opts.metric === "platinums" ? Prisma.sql`platinum DESC, points DESC` : Prisma.sql`points DESC, platinum DESC`;
@@ -254,11 +254,11 @@ async function memberBoard(opts: Opts & { metric: Metric }, limit: number): Prom
     // Friends can see friends-only profiles; the viewer always sees themselves.
     filters.push(
       Prisma.sql`u."id" IN (${Prisma.join(ids)})`,
-      Prisma.sql`(u."id" = ${opts.viewerId} OR (u."showOnLeaderboards" = 1 AND u."profileVisibility" <> 'PRIVATE'))`,
+      Prisma.sql`(u."id" = ${opts.viewerId} OR (u."showOnLeaderboards" = TRUE AND u."profileVisibility" <> 'PRIVATE'))`,
     );
   } else {
     // Global/country boards are public: friends-only and private profiles stay off them.
-    filters.push(Prisma.sql`u."showOnLeaderboards" = 1`, Prisma.sql`u."profileVisibility" = 'PUBLIC'`);
+    filters.push(Prisma.sql`u."showOnLeaderboards" = TRUE`, Prisma.sql`u."profileVisibility" = 'PUBLIC'`);
     if (scope === "country") {
       if (!opts.country) return [];
       filters.push(Prisma.sql`u."country" = ${opts.country}`);

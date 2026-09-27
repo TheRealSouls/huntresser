@@ -2,7 +2,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { MAX_TROPHY_LEVEL, rarityOf } from "@/lib/trophies";
-import { artHue } from "@/lib/utils";
+import { artHue, secureUrl } from "@/lib/utils";
 
 export function Avatar({
   name,
@@ -21,7 +21,7 @@ export function Avatar({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={url}
+        src={secureUrl(url)}
         alt=""
         width={size}
         height={size}

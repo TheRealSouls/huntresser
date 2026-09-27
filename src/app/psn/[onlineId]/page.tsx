@@ -5,9 +5,8 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { after } from "next/server";
-import { importTitles } from "@/lib/psn/catalogue";
 import { datePlatinums, storePlayerTitles } from "@/lib/psn/players";
-import { getPsnProfile, getPsnTitles, PSN_ONLINE_ID, summaryAsTitle, type PsnPublicProfile } from "@/lib/psn/lookup";
+import { getPsnProfile, getPsnTitles, PSN_ONLINE_ID, type PsnPublicProfile } from "@/lib/psn/lookup";
 import { isDemoMode } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
 import { SITE } from "@/lib/site";
@@ -40,7 +39,16 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
-export default async function PsnProfilePage({ params }: { params: Promise<Params> }) {
+const PER_PAGE = 200;
+
+export default async function PsnProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = Math.max(1, Number.parseInt((await searchParams).page ?? "1", 10) || 1);
   const onlineId = decodeURIComponent((await params).onlineId).trim();
   if (!PSN_ONLINE_ID.test(onlineId)) notFound();
 
@@ -144,7 +152,7 @@ export default async function PsnProfilePage({ params }: { params: Promise<Param
           </SkeletonRegion>
         }
       >
-        <TitleList accountId={p.accountId} onlineId={p.onlineId} />
+        <TitleList accountId={p.accountId} onlineId={p.onlineId} page={page} />
       </Suspense>
     </div>
   );
@@ -201,8 +209,8 @@ function Header({ profile: p }: { profile: PsnPublicProfile }) {
   );
 }
 
-async function TitleList({ accountId, onlineId }: { accountId: string; onlineId: string }) {
-  const res = await getPsnTitles(accountId);
+async function TitleList({ accountId, onlineId, page }: { accountId: string; onlineId: string; page: number }) {
+  const res = await getPsnTitles(accountId, { limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
   if (!res.ok) {
     if (res.kind === "private")
       return (
@@ -213,15 +221,27 @@ async function TitleList({ accountId, onlineId }: { accountId: string; onlineId:
       );
     return <Notice tone="bad">We couldn&apos;t load {onlineId}&apos;s games from PlayStation Network. Try again shortly.</Notice>;
   }
-  const titles = res.data;
+  const { titles, total } = res.data;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  if (titles.length === 0 && page > 1)
+    return (
+      <EmptyState title="No more games">
+        {onlineId} has {formatNumber(total)} games in total.
+      </EmptyState>
+    );
   if (titles.length === 0)
     return <EmptyState title="No games yet">{onlineId} hasn&apos;t synced any trophies to PSN.</EmptyState>;
 
   // Every game we see grows the catalogue, so it becomes searchable on the site.
-  const slugs = await importTitles(titles.map(summaryAsTitle), accountId).catch((err) => {
-    console.error("[catalogue] import failed", err);
-    return new Map<string, string>();
-  });
+  // Link games already in the catalogue now; new ones are added in the background below (storePlayerTitles imports them).
+  const slugs = new Map(
+    (
+      await prisma.game.findMany({
+        where: { npCommunicationId: { in: titles.map((t) => t.npCommunicationId) } },
+        select: { slug: true, npCommunicationId: true },
+      })
+    ).map((g) => [g.npCommunicationId!, g.slug]),
+  );
   // Their recent games and platinums also feed the home page and weekly boards. Runs after the response.
   after(async () => {
     try {
@@ -247,19 +267,38 @@ async function TitleList({ accountId, onlineId }: { accountId: string; onlineId:
   const plats = titles.filter((t) => t.earned.platinum > 0).length;
   const avg = Math.round(titles.reduce((s, t) => s + t.progress, 0) / titles.length);
   const complete = titles.filter((t) => t.progress === 100).length;
-  // Only the most recent 200 lists are fetched; lifetime totals are in the header.
-  const partial = titles.length >= 200;
+  // PSN pages the list; lifetime totals are in the header.
+  const partial = pages > 1;
+  const base = `/psn/${encodeURIComponent(onlineId)}`;
 
   return (
     <section>
       <StatGrid className="mb-8 grid-cols-2 sm:grid-cols-4">
-        <Stat label="Games shown" value={formatNumber(titles.length)} sub={partial ? "most recently played" : undefined} />
-        <Stat label="Platinums" value={formatNumber(plats)} sub={partial ? "in these games" : undefined} />
-        <Stat label="100% games" value={formatNumber(complete)} sub={partial ? "in these games" : undefined} />
-        <Stat label="Avg completion" value={`${avg}%`} sub={partial ? "in these games" : undefined} />
+        <Stat
+          label="Games"
+          value={formatNumber(total)}
+          sub={
+            partial
+              ? `showing ${formatNumber((page - 1) * PER_PAGE + 1)} to ${formatNumber((page - 1) * PER_PAGE + titles.length)}`
+              : undefined
+          }
+        />
+        <Stat label="Platinums" value={formatNumber(plats)} sub={partial ? "on this page" : undefined} />
+        <Stat label="100% games" value={formatNumber(complete)} sub={partial ? "on this page" : undefined} />
+        <Stat label="Avg completion" value={`${avg}%`} sub={partial ? "on this page" : undefined} />
       </StatGrid>
 
-      <SectionTitle>Recently played</SectionTitle>
+      <SectionTitle
+        action={
+          partial ? (
+            <span className="text-xs text-muted">
+              Page {page} of {pages}
+            </span>
+          ) : undefined
+        }
+      >
+        {page === 1 ? "Recently played" : "Games"}
+      </SectionTitle>
       <ul className="divide-y divide-line border-y border-line">
         {titles.map((t) => {
           const slug = slugs.get(t.npCommunicationId);
@@ -302,6 +341,27 @@ async function TitleList({ accountId, onlineId }: { accountId: string; onlineId:
           );
         })}
       </ul>
+      {partial && (
+        <nav className="mt-6 flex items-center justify-between text-sm" aria-label="Pagination">
+          {page > 1 ? (
+            <Link href={`${base}?page=${page - 1}`} className="btn-ghost">
+              Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-muted">
+            Page {page} of {pages}
+          </span>
+          {page < pages ? (
+            <Link href={`${base}?page=${page + 1}`} className="btn-ghost">
+              Next
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </section>
   );
 }

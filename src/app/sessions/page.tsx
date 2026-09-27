@@ -15,13 +15,13 @@ export const metadata: Metadata = { title: "Sessions", description: "Boosting an
 export default async function SessionsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const sp = await searchParams;
   const viewerId = await getSessionUserId();
-  const [sessions, games] = await Promise.all([
+  const [sessions, initialGame] = await Promise.all([
     prisma.session.findMany({
       where: { startsAt: { gte: new Date(Date.now() - 2 * 3600_000) } },
       orderBy: { startsAt: "asc" },
       include: { game: true, host: { include: { psn: true } }, members: { include: { user: { include: { psn: true } } } } },
     }),
-    viewerId ? prisma.game.findMany({ orderBy: { title: "asc" }, select: { id: true, title: true, platforms: true } }) : [],
+    viewerId && sp.new ? prisma.game.findUnique({ where: { id: sp.new }, select: { id: true, title: true, platforms: true } }) : null,
   ]);
 
   return (
@@ -91,7 +91,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
           <section className="card sticky top-24 p-5">
             <h2 className="mb-4 font-bold">Host a session</h2>
             {viewerId ? (
-              <SessionForm games={games} initialGameId={sp.new} />
+              <SessionForm initialGame={initialGame} />
             ) : (
               <p className="text-sm text-muted">
                 <Link href="/login?next=/sessions" className="link">Log in</Link> to host a session.

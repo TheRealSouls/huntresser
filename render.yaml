@@ -1,0 +1,37 @@
+# Render Blueprint: a free sample deployment of Huntresser in demo mode.
+#
+# The build creates a SQLite database and seeds the fictional demo catalogue,
+# users and guides into it, so every start (including after the free
+# instance sleeps) begins from the same sample data. Anything visitors change
+# is reset on the next restart or deploy. See README, "Deploying to Render",
+# for the live-PSN setup with a persistent disk.
+services:
+  - type: web
+    name: huntresser
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --include=dev && npx prisma db push && npm run db:seed && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        value: file:./demo.db
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      # Leave empty for demo mode. Set it (and move to a persistent disk) for live PSN data.
+      - key: PSN_NPSSO
+        sync: false
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: SITE_OPERATOR_NAME
+        sync: false
+      - key: SITE_CONTACT_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_FORMSPREE_FORM_ID
+        value: xljdozjl
