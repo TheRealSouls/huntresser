@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/sessions" className="hover:text-text">Sessions</Link>
               <Link href="/terms" className="hover:text-text">Terms of service</Link>
               <Link href="/privacy" className="hover:text-text">Privacy policy</Link>
-              <a href={`mailto:${SITE.contactEmail}`} className="hover:text-text">Contact</a>
+              <Link href="/contact" className="hover:text-text">Contact</Link>
             </nav>
           </div>
           <div className="mx-auto mt-6 max-w-7xl px-4 text-faint sm:px-6">

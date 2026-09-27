@@ -33,6 +33,10 @@ export default function PrivacyPage() {
         <h3>When you use the site</h3>
         <ul>
           <li>Guides, tips, votes, friend requests and sessions you create or join.</li>
+          <li>
+            Anything you send through the <Link href="/contact">contact form</Link>: your email, the message, and your name, username
+            or PSN Online ID if you include them.
+          </li>
           <li>One essential cookie that keeps you signed in. We don&apos;t use advertising or analytics cookies.</li>
           <li>Your guide checklist ticks, stored only in your own browser.</li>
           <li>
@@ -48,7 +52,8 @@ export default function PrivacyPage() {
         </p>
         <p>
           If a player&apos;s trophies are private on PSN, we don&apos;t rank them. Anyone can ask us to remove their PSN profile from
-          the site entirely by emailing <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>; we then hide it from
+          the site entirely through the <Link href="/contact?topic=removal">contact form</Link> or by emailing{" "}
+          <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>; we then hide it from
           lookups, search and leaderboards. We keep this summary because it lets the leaderboards show the real top players
           (our legitimate interest), and it only contains information PSN already shows publicly.
         </p>
@@ -67,8 +72,8 @@ export default function PrivacyPage() {
           post are public. Your email address is never shown to other users.
         </p>
         <p>
-          We use a small number of service providers to run the site, such as our hosting and database provider. They process data
-          only on our instructions. We read trophy data from Sony&apos;s PlayStation Network. If a provider is outside the UK or EEA,
+          We use a small number of service providers to run the site, such as our hosting and database provider, and Formspree,
+          which receives contact form messages and forwards them to us by email. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network. If a provider is outside the UK or EEA,
           we rely on an adequacy decision or standard contractual clauses.
         </p>
 
@@ -85,8 +90,8 @@ export default function PrivacyPage() {
           You can access, correct, export or delete your data. Most of this is self-service: edit your profile in{" "}
           <Link href="/settings">Settings</Link>, download everything with &quot;Download my data&quot;, or delete your account there.
           You can also object to processing, ask us to restrict it, or complain to your data protection authority (in the UK,
-          that&apos;s the ICO). Email <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a> and we&apos;ll reply within one
-          month.
+          that&apos;s the ICO). Use the <Link href="/contact?topic=privacy">contact form</Link> or email{" "}
+          <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a> and we&apos;ll reply within one month.
         </p>
 
         <h2>Children</h2>

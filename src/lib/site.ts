@@ -10,6 +10,8 @@ export const SITE = {
   operator: process.env.SITE_OPERATOR_NAME || "the Huntresser team",
   contactEmail: process.env.SITE_CONTACT_EMAIL || "hello@huntresser.example",
   privacyEmail: process.env.SITE_PRIVACY_EMAIL || process.env.SITE_CONTACT_EMAIL || "privacy@huntresser.example",
+  // Formspree form behind /contact. Form ids are public (they end up in the page).
+  formspreeFormId: process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID || "xljdozjl",
   jurisdiction: process.env.SITE_JURISDICTION || "England and Wales",
-  legalUpdated: "26 September 2026",
+  legalUpdated: "27 September 2026",
 } as const;

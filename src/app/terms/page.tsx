@@ -44,8 +44,8 @@ export default function TermsPage() {
           Anyone can look up a public PSN profile on the site. We show the same information PSN makes public (Online ID, avatar,
           trophy level and trophy lists). Players we&apos;ve seen appear on the all-time global and country leaderboards using the
           public totals PSN reports; we don&apos;t store their game-by-game trophy history unless they link their account. If
-          you&apos;d like your PSN profile removed from lookups and leaderboards, set your PSN trophies to private or email{" "}
-          <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
+          you&apos;d like your PSN profile removed from lookups and leaderboards, set your PSN trophies to private or{" "}
+          <Link href="/contact?topic=removal">ask us to remove it</Link>.
         </p>
 
         <h2>5. What you post</h2>
@@ -104,7 +104,8 @@ export default function TermsPage() {
 
         <h2>12. Contact</h2>
         <p>
-          Questions about these terms: <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>. How we handle your data is
+          Questions about these terms: use the <Link href="/contact">contact form</Link> or email{" "}
+          <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>. How we handle your data is
           covered in the <Link href="/privacy">privacy policy</Link>.
         </p>
       </article>

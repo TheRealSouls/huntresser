@@ -155,10 +155,13 @@ list count, and every game page has a switcher between its lists. After changing
 | Search (games, PSN players, members, trophies, guides, sessions) | `/search` |
 | Co-op and boosting sessions | `/sessions` |
 | Terms and privacy policy | `/terms`, `/privacy` (operator details come from `SITE_*` env vars) |
+| Contact form (Formspree) | `/contact`, `?topic=removal` or `?topic=privacy` preselects a topic |
 
 ## Production checklist
 
 - Set `SESSION_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL` and the `SITE_*` operator/contact variables.
+- Contact messages go to Formspree form `NEXT_PUBLIC_FORMSPREE_FORM_ID` (default `xljdozjl`). In the Formspree dashboard,
+  restrict the form to your production domain and turn on its spam filtering. The form also sends a `_gotcha` honeypot.
 - Have the terms and privacy policy reviewed for your jurisdiction before launch.
 - Switch Prisma to PostgreSQL.
 - The rate limiter in `src/lib/rate-limit.ts` is in-memory. Replace it with Redis (or similar) if you run more than one instance.
