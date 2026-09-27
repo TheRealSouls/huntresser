@@ -1,0 +1,323 @@
+// Huntresser data model.
+// SQLite in dev; switch `provider` to "postgresql" for production (enums are
+// modelled as strings so the schema stays portable).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Accounts ────────────────────────────────────────────────────────────────
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  username           String   @unique
+  passwordHash       String
+  country            String? // ISO 3166-1 alpha-2
+  bio                String?
+  avatarHue          Int      @default(215)
+  // PUBLIC | FRIENDS | PRIVATE
+  profileVisibility  String   @default("PUBLIC")
+  showOnLeaderboards Boolean  @default(true)
+  showActivity       Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  psn              PsnAccount?
+  games            UserGame[]
+  trophies         UserTrophy[]
+  sentRequests     Friendship[]     @relation("requester")
+  receivedRequests Friendship[]     @relation("addressee")
+  guides           Guide[]
+  tips             Tip[]
+  tipVotes         TipVote[]
+  syncJobs         SyncJob[]
+  titleSyncs       PsnTitleSync[]
+  hostedSessions   Session[]
+  sessionSlots     SessionMember[]
+}
+
+model PsnAccount {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  onlineId         String    @unique
+  accountId        String?
+  avatarUrl        String?
+  verified         Boolean   @default(false)
+  verificationCode String?
+  trophyLevel      Int       @default(1)
+  levelProgress    Int       @default(0)
+  lastSyncedAt     DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  // PENDING | ACCEPTED
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+
+  requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+model SyncJob {
+  id             String    @id @default(cuid())
+  userId         String
+  // RUNNING | SUCCESS | FAILED
+  status         String    @default("RUNNING")
+  provider       String
+  gamesSynced    Int       @default(0)
+  trophiesSynced Int       @default(0)
+  // Trophy lists still waiting for a later run (syncs are capped per run).
+  remaining      Int       @default(0)
+  error          String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+}
+
+// When each PSN trophy list was last synced for a user, so a sync can resume
+// where the previous capped run stopped and skip lists that haven't changed.
+model PsnTitleSync {
+  userId            String
+  npCommunicationId String
+  lastUpdated       DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, npCommunicationId])
+}
+
+// ─── Game database ───────────────────────────────────────────────────────────
+
+model Game {
+  id                String    @id @default(cuid())
+  slug              String    @unique
+  npCommunicationId String?   @unique
+  npServiceName     String? // "trophy" (PS3/PS4/Vita) | "trophy2" (PS5)
+  title             String
+  // Same value for every trophy list of one game (see titleKey() in src/lib/utils.ts).
+  titleKey          String    @default("")
+  platforms         String // comma separated: "PS5,PS4"
+  publisher         String?
+  developer         String?
+  genre             String?
+  releaseDate       DateTime?
+  description       String?
+  iconUrl           String?
+  coverHue          Int       @default(220)
+  // Community estimates
+  difficulty        Float? // 1 to 10
+  hoursToPlatinum   Int?
+  playthroughs      Int?
+  hasOnlineTrophies Boolean   @default(false)
+  trailerYoutubeId  String?
+  // A PSN account known to own this title. Earn rates only come back from
+  // per-user trophy calls, so this lets us fetch rarity for catalogue imports.
+  psnSampleAccountId String?
+  screenshots       String    @default("[]") // JSON array of image URLs / art seeds
+  createdAt         DateTime  @default(now())
+
+  groups    TrophyGroup[]
+  trophies  Trophy[]
+  userGames UserGame[]
+  guides    Guide[]
+  sessions  Session[]
+
+  @@index([title])
+  @@index([titleKey])
+}
+
+model TrophyGroup {
+  id          String    @id @default(cuid())
+  gameId      String
+  psnGroupId  String // "default", "001", ...
+  name        String
+  isDlc       Boolean   @default(false)
+  releaseDate DateTime?
+
+  game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  trophies Trophy[]
+
+  @@unique([gameId, psnGroupId])
+}
+
+model Trophy {
+  id          String  @id @default(cuid())
+  gameId      String
+  groupId     String
+  psnTrophyId Int
+  name        String
+  description String
+  // PLATINUM | GOLD | SILVER | BRONZE
+  type        String
+  hidden      Boolean @default(false)
+  missable    Boolean @default(false)
+  online      Boolean @default(false)
+  iconUrl     String?
+  earnedRate  Float? // % of players who earned it; null until PSN reports it
+
+  game    Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  group   TrophyGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  earners UserTrophy[]
+  tips    Tip[]
+  steps   GuideStep[]
+
+  @@unique([gameId, psnTrophyId])
+  @@index([name])
+}
+
+// ─── Trophy tracking ─────────────────────────────────────────────────────────
+
+model UserGame {
+  id           String    @id @default(cuid())
+  userId       String
+  gameId       String
+  progress     Int       @default(0) // 0 to 100, across base game + DLC
+  earnedCount  Int       @default(0)
+  earnedBronze Int       @default(0)
+  earnedSilver Int       @default(0)
+  earnedGold   Int       @default(0)
+  hasPlatinum  Boolean   @default(false)
+  platinumAt   DateTime?
+  completedAt  DateTime? // 100%
+  firstEarned  DateTime?
+  lastEarned   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+  @@index([gameId])
+}
+
+model UserTrophy {
+  id       String   @id @default(cuid())
+  userId   String
+  trophyId String
+  earnedAt DateTime
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trophy Trophy @relation(fields: [trophyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trophyId])
+  @@index([earnedAt])
+  @@index([trophyId])
+}
+
+// ─── Guides & community ──────────────────────────────────────────────────────
+
+model Guide {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  gameId         String
+  authorId       String
+  title          String
+  summary        String
+  difficulty     Int // 1 to 10
+  hoursEstimate  Int
+  playthroughs   Int      @default(1)
+  missableCount  Int      @default(0)
+  onlineRequired Boolean  @default(false)
+  videoYoutubeId String?
+  views          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  game   Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  steps  GuideStep[]
+  tips   Tip[]
+
+  @@index([gameId])
+}
+
+model GuideStep {
+  id             String  @id @default(cuid())
+  guideId        String
+  order          Int
+  // ROADMAP | MISSABLE | COLLECTIBLE | SPEEDRUN
+  kind           String
+  title          String
+  body           String
+  trophyId       String?
+  videoYoutubeId String?
+
+  guide  Guide   @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  trophy Trophy? @relation(fields: [trophyId], references: [id], onDelete: SetNull)
+
+  @@index([guideId, kind, order])
+}
+
+model Tip {
+  id        String   @id @default(cuid())
+  authorId  String
+  guideId   String?
+  trophyId  String?
+  body      String
+  createdAt DateTime @default(now())
+
+  author User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  guide  Guide?    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  trophy Trophy?   @relation(fields: [trophyId], references: [id], onDelete: Cascade)
+  votes  TipVote[]
+
+  @@index([trophyId])
+  @@index([guideId])
+}
+
+model TipVote {
+  userId String
+  tipId  String
+  value  Int // +1 / -1
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tip  Tip  @relation(fields: [tipId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tipId])
+}
+
+// Lightweight trophy sessions (boosting / co-op meetups). Tier 3 expands this.
+model Session {
+  id          String   @id @default(cuid())
+  hostId      String
+  gameId      String
+  title       String
+  description String?
+  platform    String
+  startsAt    DateTime
+  slots       Int      @default(4)
+  createdAt   DateTime @default(now())
+
+  host    User            @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  game    Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  members SessionMember[]
+
+  @@index([startsAt])
+}
+
+model SessionMember {
+  sessionId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, userId])
+}

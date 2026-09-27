@@ -1,0 +1,17 @@
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { getSessionUserId } from "@/lib/auth";
+import { canViewProfile, friendState } from "@/lib/social";
+
+/** Loads a profile owner plus the viewer's relationship/permissions. */
+export const loadProfile = cache(async (username: string) => {
+  const owner = await prisma.user.findUnique({
+    where: { username: username.toLowerCase() },
+    include: { psn: true },
+  });
+  if (!owner) notFound();
+  const viewerId = await getSessionUserId();
+  const [canView, relation] = await Promise.all([canViewProfile(viewerId, owner), friendState(viewerId, owner.id)]);
+  return { owner, viewerId, canView, relation };
+});

@@ -1,0 +1,147 @@
+/* Only scan src/ for class names. Otherwise every SQLite write in prisma/
+   triggers a CSS rebuild and Fast Refresh in dev. */
+@import "tailwindcss" source("../");
+
+/* Windows has no flag emoji. This font covers only the regional-indicator
+   code points, so every other character falls through to the next font. */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  src: url("/fonts/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Twemoji Country Flags", var(--font-plex-mono), ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-sans);
+  --font-mono: var(--font-sans);
+
+  /* Hard edges everywhere. Tailwind's radius scale all maps to 2px, so any
+     `rounded-*` class stays crisp. */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-4xl: 2px;
+
+  /* Warm charcoal neutrals, a brick red accent. */
+  --color-bg: #141110;
+  --color-surface: #1b1716;
+  --color-surface-2: #231e1c;
+  --color-surface-3: #2e2825;
+  --color-line: #3b3330;
+  --color-text: #efe8e2;
+  --color-muted: #a89c94;
+  --color-faint: #7a6e67;
+
+  --color-accent: #b8352a;
+  --color-accent-hi: #cc4436;
+  --color-accent-text: #ea7666;
+
+  --color-plat: #c5cdd8;
+  --color-gold: #d3a441;
+  --color-silver: #aab0b8;
+  --color-bronze: #bf7a4c;
+
+  --color-ultra: #d3a441;
+  --color-very: #d27c45;
+  --color-rare: #79a8a2;
+  --color-common: #a89c94;
+
+  --color-good: #7fb285;
+  --color-bad: #ef7d6d;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-feature-settings: "zero" 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-text);
+  outline-offset: 2px;
+}
+
+/* Component classes are declared as utilities so Tailwind variants and
+   overrides (e.g. `btn-primary w-full py-3`) compose predictably. */
+@utility card {
+  @apply rounded-sm border border-line bg-surface;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border px-4 py-2 text-sm font-semibold transition-colors
+    disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn border-accent bg-accent text-white hover:border-accent-hi hover:bg-accent-hi;
+}
+@utility btn-ghost {
+  @apply btn border-line bg-transparent text-text hover:border-muted hover:bg-surface-2;
+}
+@utility btn-danger {
+  @apply btn border-bad/50 bg-transparent text-bad hover:bg-bad/10;
+}
+@utility input {
+  @apply w-full rounded-sm border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-faint
+    outline-none transition-colors focus:border-accent-text;
+}
+@utility label {
+  @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted;
+}
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-sm border border-line px-2 py-0.5 text-xs font-medium text-muted;
+}
+@utility chip-active {
+  @apply border-accent-text text-text;
+}
+@utility link {
+  @apply text-accent-text underline-offset-4 hover:underline;
+}
+@utility prose-guide {
+  @apply whitespace-pre-line text-sm leading-relaxed text-text/90;
+}
+@utility prose-legal {
+  @apply max-w-3xl text-sm leading-relaxed text-text/90
+    [&_h2]:mb-2 [&_h2]:mt-10 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-text
+    [&_h3]:mb-1 [&_h3]:mt-6 [&_h3]:font-semibold
+    [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
+    [&_a]:text-accent-text [&_a]:underline [&_a]:underline-offset-4;
+}
+
+/* Skeleton placeholders shown while a route streams in. */
+@utility skeleton {
+  @apply rounded-sm bg-surface-3;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection {
+  background: rgb(184 53 42 / 0.45);
+  color: var(--color-text);
+}

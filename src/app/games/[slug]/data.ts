@@ -1,0 +1,34 @@
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { ensureGameTrophies } from "@/lib/psn/catalogue";
+import { getProvider, isDemoMode } from "@/lib/psn/sync";
+
+const query = (slug: string) =>
+  prisma.game.findUnique({
+    where: { slug },
+    include: {
+      groups: { orderBy: { psnGroupId: "asc" } },
+      trophies: { include: { _count: { select: { tips: true } } } },
+      _count: { select: { userGames: true } },
+    },
+  });
+
+/**
+ * Games imported from a PSN profile arrive without trophies. The first visit
+ * fetches the list from PSN; `trophyError` is set if that fails.
+ */
+export const loadGame = cache(async (slug: string) => {
+  let game = await query(slug);
+  if (!game) notFound();
+  let trophyError: string | null = null;
+  if (game.trophies.length === 0 && game.npCommunicationId && !isDemoMode()) {
+    try {
+      if (await ensureGameTrophies(getProvider(), game)) game = (await query(slug))!;
+    } catch (err) {
+      console.error(`[catalogue] trophy list for ${slug} failed`, err);
+      trophyError = "We couldn't load this trophy list from PlayStation Network. Refresh to try again.";
+    }
+  }
+  return { ...game, trophyError };
+});
