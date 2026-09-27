@@ -49,7 +49,10 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
   const requested = sp.country?.toUpperCase();
   const country = requested && /^[A-Z]{2}$/.test(requested) ? requested : (user?.country ?? "GB");
 
-  const rows = await getLeaderboard({ metric, period, scope, country, viewerId: user?.id });
+  const [rows, trackedCount] = await Promise.all([
+    getLeaderboard({ metric, period, scope, country, viewerId: user?.id }),
+    prisma.psnPlayer.count({ where: { hidden: false, trophiesPrivate: false, ...(scope === "country" ? { country } : {}) } }),
+  ]);
   const psnTotals = usesPsnTotals({ metric, period, scope });
 
   const href = (o: Partial<Record<keyof Search, string>>) => {
@@ -69,7 +72,11 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
   return (
     <div>
       <PageHeader kicker="Compete" title="Leaderboards">
-        {period === "all" ? "All-time standings" : period === "weekly" ? "Trophies earned since Monday (UTC)" : "Trophies earned this calendar month (UTC)"}
+        {period === "all"
+          ? "All-time standings"
+          : period === "weekly"
+            ? "Trophies earned since Monday (UTC)"
+            : "Trophies earned this calendar month (UTC)"}
         {scope === "country" && ` in ${countryName(country)}`}
         {scope === "friends" && " among you and your friends"}.
       </PageHeader>
@@ -77,7 +84,9 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
       <div className="card mb-6 space-y-4 p-4">
         <Group label="Scope">
           {Object.entries(SCOPES).map(([k, l]) => (
-            <Pill key={k} href={href({ scope: k })} active={scope === k}>{l}</Pill>
+            <Pill key={k} href={href({ scope: k })} active={scope === k}>
+              {l}
+            </Pill>
           ))}
           {scope === "country" && (
             <form action="/leaderboards" className="flex gap-2 sm:ml-2">
@@ -98,24 +107,37 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
         </Group>
         <Group label="Period">
           {Object.entries(PERIODS).map(([k, l]) => (
-            <Pill key={k} href={href({ period: k })} active={period === k}>{l}</Pill>
+            <Pill key={k} href={href({ period: k })} active={period === k}>
+              {l}
+            </Pill>
           ))}
         </Group>
         <Group label="Ranked by">
           {Object.entries(METRICS).map(([k, l]) =>
             k === "completion" && period !== "all" ? null : (
-              <Pill key={k} href={href({ metric: k })} active={metric === k}>{l}</Pill>
+              <Pill key={k} href={href({ metric: k })} active={metric === k}>
+                {l}
+              </Pill>
             ),
           )}
         </Group>
       </div>
 
       {scope === "friends" && !user ? (
-        <EmptyState title="Log in to see your friends board" action={<Link href="/login?next=/leaderboards?scope=friends" className="btn-primary">Log in</Link>} />
+        <EmptyState
+          title="Log in to see your friends board"
+          action={
+            <Link href="/login?next=/leaderboards?scope=friends" className="btn-primary">
+              Log in
+            </Link>
+          }
+        />
       ) : rows.length === 0 ? (
         <EmptyState title="Nobody here yet">
           {psnTotals
-            ? `No players ${scope === "country" ? `from ${countryName(country)} ` : ""}have been seen yet. Players are added when someone looks up their PSN profile or they link their account.`
+            ? period === "all"
+              ? `No players ${scope === "country" ? `from ${countryName(country)} ` : ""}have been seen yet. Players are added when someone looks up their PSN profile or they link their account.`
+              : `Nobody ${scope === "country" ? `from ${countryName(country)} ` : ""}has gained points since the ${period === "weekly" ? "week" : "month"} started, as far as our refreshes have seen.`
             : "No trophies have been earned in this window."}
         </EmptyState>
       ) : (
@@ -132,7 +154,9 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
                     r.rank === 3 && "sm:order-3 sm:mt-6",
                   )}
                 >
-                  <span className={clsx("absolute left-3 top-2 text-lg font-bold", r.rank === 1 ? "text-gold" : "text-muted")}>{r.rank}</span>
+                  <span className={clsx("absolute left-3 top-2 text-lg font-bold", r.rank === 1 ? "text-gold" : "text-muted")}>
+                    {r.rank}
+                  </span>
                   <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={r.rank === 1 ? 72 : 60} />
                   <Link href={r.href} className="mt-3 break-all font-bold hover:underline hover:underline-offset-4">
                     {r.name} <span className="text-sm">{flag(r.country)}</span>
@@ -163,23 +187,35 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
                   <tr key={r.key} className={clsx(r.userId && r.userId === user?.id && "bg-surface-3")}>
                     <td className="px-4 py-2.5 tabular-nums text-muted">{r.rank}</td>
                     <td className="px-4 py-2.5">
-                      <Link href={r.href} className="flex items-center gap-2.5 font-semibold hover:underline hover:underline-offset-4">
+                      <Link
+                        href={r.href}
+                        className="flex items-center gap-2.5 font-semibold hover:underline hover:underline-offset-4"
+                      >
                         <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={28} />
                         {r.name}
                         <span title={countryName(r.country)}>{flag(r.country)}</span>
                         {r.userId && r.userId === user?.id && <span className="chip">You</span>}
-                        {r.kind === "member" && r.userId !== user?.id && psnTotals && <span className="chip" title="Has a Huntresser account">Member</span>}
+                        {r.kind === "member" && r.userId !== user?.id && psnTotals && (
+                          <span className="chip" title="Has a Huntresser account">
+                            Member
+                          </span>
+                        )}
                       </Link>
                     </td>
                     <Td>{r.level}</Td>
                     <Td active={metric === "points"}>{formatNumber(r.points)}</Td>
                     <Td active={metric === "platinums"}>
-                      <span className="inline-flex items-center gap-1"><TrophyIcon type="PLATINUM" size={13} />{formatNumber(r.platinums)}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <TrophyIcon type="PLATINUM" size={13} />
+                        {formatNumber(r.platinums)}
+                      </span>
                     </Td>
                     <Td active={metric === "rare"}>{r.rare ?? <span className="text-faint">n/a</span>}</Td>
                     <Td>{formatNumber(r.trophies)}</Td>
                     {period === "all" && (
-                      <Td active={metric === "completion"}>{r.completion != null ? `${r.completion}%` : <span className="text-faint">n/a</span>}</Td>
+                      <Td active={metric === "completion"}>
+                        {r.completion != null ? `${r.completion}%` : <span className="text-faint">n/a</span>}
+                      </Td>
                     )}
                   </tr>
                 ))}
@@ -194,15 +230,17 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
       <div className="mt-4 space-y-1 text-xs text-faint">
         {psnTotals ? (
           <p>
-            All-time points and platinum boards use each player&apos;s real totals from PlayStation Network, including players who
-            haven&apos;t joined. A player appears once their PSN profile has been looked up here or they&apos;ve linked their
-            account. Countries come from the player&apos;s PSN account region.
+            {period === "all"
+              ? "Points and platinum boards use each player's real lifetime totals from PlayStation Network, including players who haven't joined."
+              : `This board ranks what each player gained since the ${period === "weekly" ? "week" : "month"} started, measured between our regular refreshes of their PSN totals, so it includes players who haven't joined.`}{" "}
+            The site ranks {formatNumber(trackedCount)} players it has seen so far: anyone whose profile was looked up, linked or
+            tracked. Countries come from the player&apos;s PSN account region.
             {isDemoMode() && " In demo mode no PSN players are tracked, so only members appear."}
           </p>
         ) : (
           <p>
-            This board needs a full trophy history, so only members who have linked PSN appear on it. Members&apos; countries are the
-            ones they chose in settings.
+            This board needs a full trophy history, so only members who have linked PSN appear on it. Members&apos; countries are
+            the ones they chose in settings.
           </p>
         )}
         <p>

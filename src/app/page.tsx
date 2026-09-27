@@ -10,6 +10,7 @@ import { GameCard } from "@/components/GameCard";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { Avatar, Notice, RarityBadge, SectionTitle } from "@/components/ui";
 import { SITE } from "@/lib/site";
+import { gamesNeedingGuides, latestPlatinums, siteTotals, trendingGameIds } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -20,16 +21,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const user = await getCurrentUser();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
-  const [hunters, trophyCount, platCount, recentPlats, rareUnlocks, weekly, guides, trending] = await Promise.all([
-    prisma.user.count(),
-    prisma.userTrophy.count(),
-    prisma.userGame.count({ where: { hasPlatinum: true } }),
-    prisma.userGame.findMany({
-      where: { hasPlatinum: true, user: publicActivity },
-      orderBy: { platinumAt: "desc" },
-      take: 6,
-      include: { user: { include: { psn: true } }, game: true },
-    }),
+  const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides] = await Promise.all([
+    siteTotals(),
+    latestPlatinums(6),
     prisma.userTrophy.findMany({
       where: { trophy: { earnedRate: { lte: ULTRA_RARE_MAX } }, user: publicActivity },
       orderBy: { earnedAt: "desc" },
@@ -38,19 +32,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     }),
     getLeaderboard({ metric: "points", period: "weekly", scope: "global", limit: 5 }),
     prisma.guide.findMany({ orderBy: { views: "desc" }, take: 3, include: { game: true, author: true } }),
-    prisma.$queryRaw<{ gameId: string; n: number }[]>`
-      SELECT t."gameId" AS "gameId", CAST(COUNT(*) AS INTEGER) AS n
-      FROM "UserTrophy" ut JOIN "Trophy" t ON t."id" = ut."trophyId"
-      WHERE ut."earnedAt" >= ${monthAgo}
-      GROUP BY t."gameId" ORDER BY n DESC LIMIT 6`,
+    trendingGameIds(monthAgo, 6),
+    gamesNeedingGuides(5),
   ]);
+  const { hunters, trophies: trophyCount, platinums: platCount } = totals;
 
   const trendingGames = await prisma.game.findMany({
-    where: { id: { in: trending.map((t) => t.gameId) } },
+    where: { id: { in: trending } },
     include: { trophies: { where: { type: "PLATINUM" }, select: { earnedRate: true } } },
   });
   const trendingSorted = trending
-    .map((t) => trendingGames.find((g) => g.id === t.gameId))
+    .map((id) => trendingGames.find((g) => g.id === id))
     .filter((g): g is (typeof trendingGames)[number] => !!g);
 
   return (
@@ -64,21 +56,31 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             Your trophies, your platinums, and the people chasing the same ones.
           </h1>
           <p className="mt-5 max-w-xl text-muted">
-            Sync your PSN trophy list, plan a platinum with a community roadmap that flags the missables, and see where you
-            rank in the world, your country and your friends list.
+            Sync your PSN trophy list, plan a platinum with a community roadmap that flags the missables, and see where you rank
+            in the world, your country and your friends list.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {!user ? (
               <>
-                <Link href="/register" className="btn-primary px-5 py-2.5">Create a free account</Link>
-                <Link href="/login" className="btn-ghost px-5 py-2.5">Log in</Link>
+                <Link href="/register" className="btn-primary px-5 py-2.5">
+                  Create a free account
+                </Link>
+                <Link href="/login" className="btn-ghost px-5 py-2.5">
+                  Log in
+                </Link>
               </>
             ) : !user.psn?.verified ? (
-              <Link href="/settings#psn" className="btn-primary px-5 py-2.5">Link your PSN account</Link>
+              <Link href="/settings#psn" className="btn-primary px-5 py-2.5">
+                Link your PSN account
+              </Link>
             ) : (
-              <Link href={`/u/${user.username}`} className="btn-primary px-5 py-2.5">View my trophies</Link>
+              <Link href={`/u/${user.username}`} className="btn-primary px-5 py-2.5">
+                View my trophies
+              </Link>
             )}
-            <Link href="/games" className="btn-ghost px-5 py-2.5">Browse games</Link>
+            <Link href="/games" className="btn-ghost px-5 py-2.5">
+              Browse games
+            </Link>
           </div>
           <p className="mt-8 text-xs text-muted">
             <span className="text-text">{formatNumber(hunters)}</span> hunters ·{" "}
@@ -88,9 +90,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         </div>
 
         <form action="/psn" className="card p-5" role="search">
-          <label htmlFor="psn-id" className="label">Look up any PSN profile</label>
+          <label htmlFor="psn-id" className="label">
+            Look up any PSN profile
+          </label>
           <div className="flex gap-2">
-            <input id="psn-id" name="id" required placeholder="PSN Online ID" autoComplete="off" spellCheck={false} className="input" />
+            <input
+              id="psn-id"
+              name="id"
+              required
+              placeholder="PSN Online ID"
+              autoComplete="off"
+              spellCheck={false}
+              className="input"
+            />
             <button className="btn-primary">Look up</button>
           </div>
           <p className="mt-3 text-xs text-muted">
@@ -101,25 +113,34 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
 
       <section className="grid gap-10 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
         <div>
-          <SectionTitle action={<Link href="/leaderboards?metric=platinums" className="link text-xs">Platinum leaders</Link>}>
+          <SectionTitle
+            action={
+              <Link href="/leaderboards?metric=platinums" className="link text-xs">
+                Platinum leaders
+              </Link>
+            }
+          >
             Latest platinums
           </SectionTitle>
           {recentPlats.length === 0 ? (
-            <p className="text-sm text-muted">No platinums yet.</p>
+            <p className="text-sm text-muted">No platinums yet. They appear as players link their accounts or get tracked.</p>
           ) : (
             <ul className="divide-y divide-line border-y border-line">
               {recentPlats.map((p) => (
-                <li key={p.id} className="flex items-center gap-3 py-2.5">
+                <li key={p.key} className="flex items-center gap-3 py-2.5">
                   <GameArt title={p.game.title} hue={p.game.coverHue} iconUrl={p.game.iconUrl} size="sm" className="w-11" />
                   <div className="min-w-0 flex-1">
-                    <Link href={`/games/${p.game.slug}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                    <Link
+                      href={`/games/${p.game.slug}`}
+                      className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
+                    >
                       {p.game.title}
                     </Link>
                     <div className="truncate text-xs text-muted">
-                      <Link href={`/u/${p.user.username}`} className="hover:text-text">
-                        {p.user.psn?.onlineId ?? p.user.username}
+                      <Link href={p.player.href} className="hover:text-text">
+                        {p.player.name}
                       </Link>{" "}
-                      {flag(p.user.country)} · {p.platinumAt && timeAgo(p.platinumAt)}
+                      {flag(p.player.country)} · {timeAgo(p.at)}
                     </div>
                   </div>
                   <TrophyIcon type="PLATINUM" size={22} />
@@ -129,7 +150,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           )}
         </div>
         <div>
-          <SectionTitle action={<Link href="/leaderboards?period=weekly" className="link text-xs">Full board</Link>}>
+          <SectionTitle
+            action={
+              <Link href="/leaderboards?period=weekly" className="link text-xs">
+                Full board
+              </Link>
+            }
+          >
             Top this week
           </SectionTitle>
           <ol className="divide-y divide-line border-y border-line">
@@ -150,7 +177,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
 
       {trendingSorted.length > 0 && (
         <section>
-          <SectionTitle action={<Link href="/games" className="link text-xs">All games</Link>}>Most played this month</SectionTitle>
+          <SectionTitle
+            action={
+              <Link href="/games" className="link text-xs">
+                All games
+              </Link>
+            }
+          >
+            Most played this month
+          </SectionTitle>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {trendingSorted.map((g) => (
               <GameCard key={g.id} game={{ ...g, platRate: g.trophies[0]?.earnedRate ?? null }} />
@@ -161,7 +196,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
 
       <section className="grid gap-10 lg:grid-cols-2 [&>*]:min-w-0">
         <div>
-          <SectionTitle action={<Link href="/guides" className="link text-xs">All guides</Link>}>Popular guides</SectionTitle>
+          <SectionTitle
+            action={
+              <Link href="/guides" className="link text-xs">
+                All guides
+              </Link>
+            }
+          >
+            Popular guides
+          </SectionTitle>
           <ul className="divide-y divide-line border-y border-line">
             {guides.map((g) => (
               <li key={g.id}>
@@ -177,8 +220,34 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                 </Link>
               </li>
             ))}
-            {guides.length === 0 && <li className="py-4 text-sm text-muted">No guides yet.</li>}
           </ul>
+          {guides.length === 0 && (
+            <div className="border-b border-line py-4 text-sm">
+              <p className="text-muted">
+                No guides yet. Guides are written by members, so the first ones are up for grabs.
+                {needGuides.length > 0 && " These games have the most players and no guide:"}
+              </p>
+              {needGuides.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {needGuides.map(({ game, players }) => (
+                    <li key={game.id} className="flex items-center gap-3">
+                      <GameArt title={game.title} hue={game.coverHue} iconUrl={game.iconUrl} size="sm" className="w-8" />
+                      <Link
+                        href={`/games/${game.slug}`}
+                        className="min-w-0 flex-1 truncate hover:underline hover:underline-offset-4"
+                      >
+                        {game.title}
+                      </Link>
+                      <span className="text-xs text-faint">{players} players</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link href="/guides/new" className="btn-ghost mt-4">
+                Write a guide
+              </Link>
+            </div>
+          )}
         </div>
         <div>
           <SectionTitle>Recent ultra rares</SectionTitle>
@@ -187,12 +256,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               <li key={u.id} className="flex items-center gap-3 py-2.5">
                 <TrophyIcon type={u.trophy.type} size={22} />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/trophies/${u.trophy.id}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                  <Link
+                    href={`/trophies/${u.trophy.id}`}
+                    className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
+                  >
                     {u.trophy.name}
                   </Link>
                   <div className="truncate text-xs text-muted">
-                    <Link href={`/u/${u.user.username}`} className="hover:text-text">{u.user.psn?.onlineId ?? u.user.username}</Link> ·{" "}
-                    {u.trophy.game.title} · {timeAgo(u.earnedAt)}
+                    <Link href={`/u/${u.user.username}`} className="hover:text-text">
+                      {u.user.psn?.onlineId ?? u.user.username}
+                    </Link>{" "}
+                    · {u.trophy.game.title} · {timeAgo(u.earnedAt)}
                   </div>
                 </div>
                 <RarityBadge rate={u.trophy.earnedRate} />

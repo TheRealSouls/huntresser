@@ -68,9 +68,13 @@ type MemberRaw = {
   games: number;
 };
 
-/** True when the board ranks Sony's real lifetime totals rather than synced trophy history. */
+/**
+ * True when the board ranks Sony's real totals (all time) or gains between
+ * snapshots (weekly/monthly) for every tracked player, rather than members'
+ * synced trophy history.
+ */
 export function usesPsnTotals(opts: Pick<Opts, "metric" | "period" | "scope">) {
-  return opts.period === "all" && opts.scope !== "friends" && (opts.metric === "points" || opts.metric === "platinums");
+  return opts.scope !== "friends" && (opts.metric === "points" || opts.metric === "platinums");
 }
 
 export async function getLeaderboard(opts: Opts): Promise<LeaderboardRow[]> {
@@ -123,17 +127,20 @@ async function psnTotalsBoard(opts: Opts, members: MemberRaw[], limit: number): 
     },
     select: { accountId: true },
   });
-  const players = await prisma.psnPlayer.findMany({
-    where: {
-      hidden: false,
-      trophiesPrivate: false,
-      accountId: { notIn: excluded.map((e) => e.accountId!) },
-      ...(country ? { country } : {}),
-    },
-    orderBy:
-      opts.metric === "platinums" ? [{ platinum: "desc" }, { points: "desc" }] : [{ points: "desc" }, { platinum: "desc" }],
-    take: limit,
-  });
+  const excludedIds = excluded.map((e) => e.accountId!);
+  const players =
+    opts.period === "all"
+      ? (
+          await prisma.psnPlayer.findMany({
+            where: { hidden: false, trophiesPrivate: false, accountId: { notIn: excludedIds }, ...(country ? { country } : {}) },
+            orderBy:
+              opts.metric === "platinums"
+                ? [{ platinum: "desc" }, { points: "desc" }]
+                : [{ points: "desc" }, { platinum: "desc" }],
+            take: limit,
+          })
+        ).map((p) => ({ ...p, trophies: p.platinum + p.gold + p.silver + p.bronze }))
+      : await playerGains(opts, country ?? null, excludedIds, limit);
 
   // Which of these players are members (public, on leaderboards)?
   const linked = await prisma.psnAccount.findMany({
@@ -163,7 +170,7 @@ async function psnTotalsBoard(opts: Opts, members: MemberRaw[], limit: number): 
       level: p.trophyLevel,
       points: p.points,
       platinums: p.platinum,
-      trophies: p.platinum + p.gold + p.silver + p.bronze,
+      trophies: p.trophies,
       rare: stats?.rare ?? null,
       completion: stats?.completion ?? null,
       games: stats?.games ?? null,
@@ -191,6 +198,49 @@ async function psnTotalsBoard(opts: Opts, members: MemberRaw[], limit: number): 
     return b1 - a1 || b2 - a2;
   });
   return rows.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+type PlayerTotals = {
+  accountId: string;
+  onlineId: string;
+  avatarUrl: string | null;
+  country: string | null;
+  trophyLevel: number;
+  points: number;
+  platinum: number;
+  trophies: number;
+};
+
+/**
+ * Points, platinums and trophies each tracked player gained since the start of
+ * the week or month, measured between stored snapshots. The baseline is the
+ * last snapshot before the period, or the first one we have if they were
+ * first seen during it.
+ */
+async function playerGains(opts: Opts, country: string | null, excluded: string[], limit: number): Promise<PlayerTotals[]> {
+  const since = opts.period === "weekly" ? startOfWeekUTC() : startOfMonthUTC();
+  const baseline = (col: "points" | "platinum" | "trophies") => Prisma.sql`COALESCE(
+      (SELECT s.${Prisma.raw(`"${col}"`)} FROM "PsnPlayerSnapshot" s WHERE s."accountId" = p."accountId" AND s."takenAt" <= ${since} ORDER BY s."takenAt" DESC LIMIT 1),
+      (SELECT s.${Prisma.raw(`"${col}"`)} FROM "PsnPlayerSnapshot" s WHERE s."accountId" = p."accountId" ORDER BY s."takenAt" ASC LIMIT 1)
+    )`;
+  const filters = [Prisma.sql`p."hidden" = 0`, Prisma.sql`p."trophiesPrivate" = 0`];
+  if (country) filters.push(Prisma.sql`p."country" = ${country}`);
+  if (excluded.length) filters.push(Prisma.sql`p."accountId" NOT IN (${Prisma.join(excluded)})`);
+  const order = opts.metric === "platinums" ? Prisma.sql`platinum DESC, points DESC` : Prisma.sql`points DESC, platinum DESC`;
+
+  const rows = await prisma.$queryRaw<PlayerTotals[]>`
+    SELECT * FROM (
+      SELECT p."accountId", p."onlineId", p."avatarUrl", p."country", p."trophyLevel",
+        CAST(p."points" - ${baseline("points")} AS INTEGER) AS points,
+        CAST(p."platinum" - ${baseline("platinum")} AS INTEGER) AS platinum,
+        CAST((p."platinum" + p."gold" + p."silver" + p."bronze") - ${baseline("trophies")} AS INTEGER) AS trophies
+      FROM "PsnPlayer" p
+      WHERE ${Prisma.join(filters, " AND ")}
+    ) WHERE points > 0
+    ORDER BY ${order}
+    LIMIT ${limit}
+  `;
+  return rows.map((r) => ({ ...r, points: Number(r.points), platinum: Number(r.platinum), trophies: Number(r.trophies) }));
 }
 
 async function memberBoard(opts: Opts & { metric: Metric }, limit: number): Promise<MemberRaw[]> {

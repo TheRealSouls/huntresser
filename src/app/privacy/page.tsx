@@ -46,9 +46,15 @@ export default function PrivacyPage() {
         <h3>Public PSN profiles of people without an account</h3>
         <p>
           When someone looks up a public PSN profile, we fetch it from PSN and cache the page for up to 15 minutes. To rank players on
-          the all-time global and country leaderboards, we also keep a short public summary: Online ID, PSN account ID, avatar, the
-          country of the PSN account, PS Plus status, trophy level and trophy counts. We don&apos;t save their game-by-game trophy
-          history, and the games on their list only feed our game catalogue, which contains no personal data.
+          the global and country leaderboards and show recent platinums, we keep a public summary: Online ID, PSN account ID, avatar,
+          the country of the PSN account, PS Plus status, trophy level, trophy counts and how those counts change over time, plus
+          their most recently played games with completion and platinum dates. We don&apos;t save trophy-by-trophy history for
+          people without an account.
+        </p>
+        <p>
+          We find players this way when someone looks them up, when a member links their account, when we add well-known trophy
+          hunters, and through the friends lists of players we already track where PSN makes those lists public. We only ever read
+          what PSN shows publicly.
         </p>
         <p>
           If a player&apos;s trophies are private on PSN, we don&apos;t rank them. Anyone can ask us to remove their PSN profile from

@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { after } from "next/server";
 import { importTitles } from "@/lib/psn/catalogue";
+import { datePlatinums, storePlayerTitles } from "@/lib/psn/players";
 import { getPsnProfile, getPsnTitles, PSN_ONLINE_ID, summaryAsTitle, type PsnPublicProfile } from "@/lib/psn/lookup";
 import { isDemoMode } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
@@ -219,6 +221,28 @@ async function TitleList({ accountId, onlineId }: { accountId: string; onlineId:
   const slugs = await importTitles(titles.map(summaryAsTitle), accountId).catch((err) => {
     console.error("[catalogue] import failed", err);
     return new Map<string, string>();
+  });
+  // Their recent games and platinums also feed the home page and weekly boards. Runs after the response.
+  after(async () => {
+    try {
+      await storePlayerTitles(
+        accountId,
+        titles.map((t) => ({
+          npCommunicationId: t.npCommunicationId,
+          npServiceName: t.npServiceName,
+          trophyTitleName: t.title,
+          trophyTitleIconUrl: t.iconUrl,
+          trophyTitlePlatform: t.platforms.join(","),
+          progress: t.progress,
+          earnedTrophies: t.earned,
+          lastUpdatedDateTime: t.lastUpdated,
+        })),
+      );
+      await datePlatinums(accountId, 3);
+      await prisma.psnPlayer.updateMany({ where: { accountId }, data: { titlesRefreshedAt: new Date() } });
+    } catch (err) {
+      console.error("[players] storing lookup titles failed", err);
+    }
   });
   const plats = titles.filter((t) => t.earned.platinum > 0).length;
   const avg = Math.round(titles.reduce((s, t) => s + t.progress, 0) / titles.length);

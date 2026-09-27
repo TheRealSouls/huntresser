@@ -30,8 +30,8 @@ model User {
   psn              PsnAccount?
   games            UserGame[]
   trophies         UserTrophy[]
-  sentRequests     Friendship[]     @relation("requester")
-  receivedRequests Friendship[]     @relation("addressee")
+  sentRequests     Friendship[]    @relation("requester")
+  receivedRequests Friendship[]    @relation("addressee")
   guides           Guide[]
   tips             Tip[]
   tipVotes         TipVote[]
@@ -107,65 +107,111 @@ model PsnTitleSync {
 // imports and member syncs). All-time global and country leaderboards rank
 // these real totals, so they include top hunters who never signed up.
 model PsnPlayer {
-  accountId       String   @id
-  onlineId        String
-  avatarUrl       String?
-  country         String? // ISO 3166-1 alpha-2, decoded from the PSN npId
-  isPlus          Boolean  @default(false)
-  trophyLevel     Int      @default(1)
-  levelProgress   Int      @default(0)
-  platinum        Int      @default(0)
-  gold            Int      @default(0)
-  silver          Int      @default(0)
-  bronze          Int      @default(0)
-  points          Int      @default(0)
+  accountId         String    @id
+  onlineId          String
+  avatarUrl         String?
+  country           String? // ISO 3166-1 alpha-2, decoded from the PSN npId
+  isPlus            Boolean   @default(false)
+  trophyLevel       Int       @default(1)
+  levelProgress     Int       @default(0)
+  platinum          Int       @default(0)
+  gold              Int       @default(0)
+  silver            Int       @default(0)
+  bronze            Int       @default(0)
+  points            Int       @default(0)
   // Trophy list set to private on PSN: kept off the boards.
-  trophiesPrivate Boolean  @default(false)
+  trophiesPrivate   Boolean   @default(false)
   // Asked to be removed from Huntresser (see terms, section 4).
-  hidden          Boolean  @default(false)
-  firstSeenAt     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  hidden            Boolean   @default(false)
+  firstSeenAt       DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  // When we last fetched their recent games, and when we last read their public friends list (discovery).
+  titlesRefreshedAt DateTime?
+  friendsCheckedAt  DateTime?
+
+  titles    PsnPlayerTitle[]
+  snapshots PsnPlayerSnapshot[]
 
   @@index([points])
   @@index([country, points])
   @@index([onlineId])
+  @@index([titlesRefreshedAt])
+}
+
+// A tracked player's recently played trophy lists: feeds "Latest platinums"
+// and "Most played" on the home page without storing trophy-by-trophy history.
+model PsnPlayerTitle {
+  accountId         String
+  npCommunicationId String
+  gameId            String
+  progress          Int       @default(0)
+  hasPlatinum       Boolean   @default(false)
+  platinumAt        DateTime? // exact, from the trophy list, once we've looked it up
+  lastUpdated       DateTime
+
+  player PsnPlayer @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+  game   Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, npCommunicationId])
+  @@index([platinumAt])
+  @@index([lastUpdated])
+}
+
+// Point totals over time, so weekly and monthly boards can rank real PSN
+// players by how much they gained, not only members with synced history.
+model PsnPlayerSnapshot {
+  id        String   @id @default(cuid())
+  accountId String
+  takenAt   DateTime @default(now())
+  points    Int
+  platinum  Int
+  trophies  Int
+
+  player PsnPlayer @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+
+  @@index([accountId, takenAt])
+  @@index([takenAt])
 }
 
 // ─── Game database ───────────────────────────────────────────────────────────
 
 model Game {
-  id                String    @id @default(cuid())
-  slug              String    @unique
-  npCommunicationId String?   @unique
-  npServiceName     String? // "trophy" (PS3/PS4/Vita) | "trophy2" (PS5)
-  title             String
+  id                 String    @id @default(cuid())
+  slug               String    @unique
+  npCommunicationId  String?   @unique
+  npServiceName      String? // "trophy" (PS3/PS4/Vita) | "trophy2" (PS5)
+  title              String
   // Same value for every trophy list of one game (see titleKey() in src/lib/utils.ts).
-  titleKey          String    @default("")
-  platforms         String // comma separated: "PS5,PS4"
-  publisher         String?
-  developer         String?
-  genre             String?
-  releaseDate       DateTime?
-  description       String?
-  iconUrl           String?
-  coverHue          Int       @default(220)
+  titleKey           String    @default("")
+  platforms          String // comma separated: "PS5,PS4"
+  publisher          String?
+  developer          String?
+  genre              String?
+  releaseDate        DateTime?
+  description        String?
+  iconUrl            String?
+  coverHue           Int       @default(220)
   // Community estimates
-  difficulty        Float? // 1 to 10
-  hoursToPlatinum   Int?
-  playthroughs      Int?
-  hasOnlineTrophies Boolean   @default(false)
-  trailerYoutubeId  String?
+  difficulty         Float? // 1 to 10
+  hoursToPlatinum    Int?
+  playthroughs       Int?
+  hasOnlineTrophies  Boolean   @default(false)
+  trailerYoutubeId   String?
   // A PSN account known to own this title. Earn rates only come back from
   // per-user trophy calls, so this lets us fetch rarity for catalogue imports.
   psnSampleAccountId String?
-  screenshots       String    @default("[]") // JSON array of image URLs / art seeds
-  createdAt         DateTime  @default(now())
+  screenshots        String    @default("[]") // JSON array of image URLs / art seeds
+  createdAt          DateTime  @default(now())
 
-  groups    TrophyGroup[]
-  trophies  Trophy[]
-  userGames UserGame[]
-  guides    Guide[]
-  sessions  Session[]
+  // When we last looked for sibling trophy lists (other regions/platforms) next to this one.
+  siblingsProbedAt DateTime?
+
+  groups       TrophyGroup[]
+  trophies     Trophy[]
+  userGames    UserGame[]
+  playerTitles PsnPlayerTitle[]
+  guides       Guide[]
+  sessions     Session[]
 
   @@index([title])
   @@index([titleKey])
@@ -348,4 +394,18 @@ model SessionMember {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([sessionId, userId])
+}
+
+// The service account's PSN session, shared by the web server, scripts and
+// cron jobs. Refreshing it avoids signing in with the NPSSO over and over,
+// which gets the NPSSO revoked.
+model PsnAuthState {
+  id               String   @id @default("service")
+  // First 8 characters of the NPSSO this session came from, so a new token in .env starts a new session.
+  npssoPrefix      String
+  accessToken      String
+  refreshToken     String
+  expiresAt        DateTime
+  refreshExpiresAt DateTime
+  updatedAt        DateTime @updatedAt
 }

@@ -9,8 +9,9 @@ import {
   getUserTrophiesEarnedForTitle,
   type AuthTokensResponse,
 } from "psn-api";
+import { prisma } from "../db";
 import type { TrophyType } from "../trophies";
-import { countryFromNpId } from "./players";
+import { countryFromNpId } from "./npid";
 import type { PsnTitle, TrophyProvider } from "./types";
 
 /**
@@ -55,37 +56,75 @@ export function withTimeout<T>(p: Promise<T>, ms = 15_000): Promise<T> {
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
 }
 
-type TokenState = { tokens: AuthTokensResponse; expiresAt: number; refreshExpiresAt: number };
+type TokenState = { accessToken: string; refreshToken: string; expiresAt: number; refreshExpiresAt: number };
 let state: TokenState | null = null;
 let inflight: Promise<{ accessToken: string }> | null = null;
 
+const npsso = () => process.env.PSN_NPSSO?.trim() ?? "";
+const npssoPrefix = () => npsso().slice(0, 8);
+
+/** The session other processes (scripts, cron, a restarted server) already opened, if it still fits this NPSSO. */
+async function loadSaved(): Promise<TokenState | null> {
+  const row = await prisma.psnAuthState.findUnique({ where: { id: "service" } }).catch(() => null);
+  if (!row || row.npssoPrefix !== npssoPrefix()) return null;
+  return {
+    accessToken: row.accessToken,
+    refreshToken: row.refreshToken,
+    expiresAt: row.expiresAt.getTime(),
+    refreshExpiresAt: row.refreshExpiresAt.getTime(),
+  };
+}
+
+async function save(tokens: AuthTokensResponse, now: number) {
+  state = {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: now + tokens.expiresIn * 1000,
+    refreshExpiresAt: now + tokens.refreshTokenExpiresIn * 1000,
+  };
+  const data = {
+    npssoPrefix: npssoPrefix(),
+    accessToken: state.accessToken,
+    refreshToken: state.refreshToken,
+    expiresAt: new Date(state.expiresAt),
+    refreshExpiresAt: new Date(state.refreshExpiresAt),
+  };
+  await prisma.psnAuthState.upsert({ where: { id: "service" }, create: { id: "service", ...data }, update: data }).catch(() => {});
+}
+
+/**
+ * Order of preference: a live access token, then the refresh token, and only
+ * then a fresh NPSSO sign-in. Signing in with the NPSSO on every process start
+ * gets the NPSSO revoked by Sony, so the session is shared through the database.
+ */
 async function refreshTokens(): Promise<{ accessToken: string }> {
   const now = Date.now();
-  let tokens: AuthTokensResponse;
-  try {
-    if (state && now < state.refreshExpiresAt - 60_000) {
-      tokens = await withTimeout(exchangeRefreshTokenForAuthTokens(state.tokens.refreshToken));
-    } else {
-      const npsso = process.env.PSN_NPSSO?.trim();
-      if (!npsso) throw new PsnError("auth", "PSN_NPSSO is not configured.");
-      tokens = await withTimeout(exchangeNpssoForAccessCode(npsso).then(exchangeAccessCodeForAuthTokens));
+  state ??= await loadSaved();
+  if (state && now < state.expiresAt - 60_000) return { accessToken: state.accessToken };
+
+  if (state && now < state.refreshExpiresAt - 60_000) {
+    try {
+      await save(await withTimeout(exchangeRefreshTokenForAuthTokens(state.refreshToken)), now);
+      return { accessToken: state!.accessToken };
+    } catch {
+      // Refresh token rejected; fall through to a full sign-in.
     }
+  }
+
+  try {
+    if (!npsso()) throw new PsnError("auth", "PSN_NPSSO is not configured.");
+    await save(await withTimeout(exchangeNpssoForAccessCode(npsso()).then(exchangeAccessCodeForAuthTokens)), now);
+    return { accessToken: state!.accessToken };
   } catch (err) {
     state = null;
     const e = toPsnError(err);
     throw e.kind === "unknown" ? new PsnError("auth", `PSN sign-in failed: ${e.message}`) : e;
   }
-  state = {
-    tokens,
-    expiresAt: now + tokens.expiresIn * 1000,
-    refreshExpiresAt: now + tokens.refreshTokenExpiresIn * 1000,
-  };
-  return { accessToken: tokens.accessToken };
 }
 
 /** Returns a valid access token, sharing one refresh between concurrent callers. */
 export async function psnAuth(): Promise<{ accessToken: string }> {
-  if (state && Date.now() < state.expiresAt - 60_000) return { accessToken: state.tokens.accessToken };
+  if (state && Date.now() < state.expiresAt - 60_000) return { accessToken: state.accessToken };
   inflight ??= refreshTokens().finally(() => {
     inflight = null;
   });

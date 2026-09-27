@@ -4,7 +4,10 @@ import clsx from "clsx";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 import { flag } from "@/lib/countries";
+import { after } from "next/server";
 import { siblingLists } from "@/lib/games";
+import { probeSiblings } from "@/lib/psn/siblings";
+import { isDemoMode } from "@/lib/psn/sync";
 import { formatDate, parseJsonArray } from "@/lib/utils";
 import { GameArt, SceneArt } from "@/components/art";
 import { TrophyList } from "@/components/TrophyList";
@@ -62,6 +65,10 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   const shots = parseJsonArray(game.screenshots);
   const dlcs = game.groups.filter((g) => g.isDlc);
   const lists = await siblingLists(game);
+  // Look for this game's other trophy lists (PS5, other regions) once, after the page is sent.
+  if (!isDemoMode() && !game.siblingsProbedAt) {
+    after(() => probeSiblings(game.id).catch((err) => console.error("[siblings]", err)));
+  }
   // Label repeated platforms "PS4 (2)" so regional stacks are distinguishable.
   const seen = new Map<string, number>();
   const listLabels = lists.map((l) => {

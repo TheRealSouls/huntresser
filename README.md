@@ -58,6 +58,9 @@ sync their real trophies.
 **Things to know**
 
 - Tokens last about two months. When one expires, PSN calls fail and the server logs `[psn] auth ...`. Repeat steps 2 to 5.
+- The server stores its PSN session (access and refresh tokens) in the database and shares it with scripts and cron jobs,
+  so the NPSSO is only used to sign in when that session has fully expired. Signing in with the NPSSO over and over (for
+  example from many short-lived processes) gets it revoked by Sony.
 - A player's trophies are only visible if their PSN privacy setting for trophies is "Anyone". Otherwise the profile shows
   as private.
 - Sony rate limits the API. Lookups are cached (profiles 15 min, searches 10 min) and rate limited per IP. The background
@@ -107,21 +110,41 @@ in `PsnPlayer`: level, trophy counts, avatar and the country of the PSN account 
 - Players whose PSN trophies are private are never ranked. Members who are private, friends-only or opted out of
   leaderboards stay off the public boards.
 
-To fill the boards with the players you know are at the top, track them directly (one PSN request each):
+- **Weekly and monthly boards** rank what each player gained since the period started, measured between stored snapshots
+  of their totals (`PsnPlayerSnapshot`), so they include non-members too. A player first seen mid-week counts from then.
+
+The boards (and the home page feeds) are only as full as the set of players the site knows, so fill it up:
 
 ```bash
-npm run psn:track -- ikemenzi GamingWithFlacy
-npm run psn:track -- --file hunters.txt      # one Online ID per line
+npm run psn:track -- ikemenzi GamingWithFlacy   # add or refresh specific players (totals, 50 recent games, platinum dates)
+npm run psn:track -- --file hunters.txt         # one Online ID per line
+npm run psn:discover -- --max 200               # add players from the public friends lists of the top tracked players
 ```
 
-Re-run it (for example daily) to refresh their totals. To honour a removal request, run
-`npm run psn:track -- --hide TheirOnlineId`: they disappear from lookups, search and leaderboards.
+Then keep them fresh with the players cron: `GET /api/cron/players` with `Authorization: Bearer $CRON_SECRET`, for
+example every 10 minutes. Each call refreshes the `PSN_REFRESH_PER_RUN` stalest players (default 10) and, if
+`PSN_DISCOVERY=on`, discovers up to `PSN_DISCOVER_PER_RUN` new ones (default 20). Discovery is off by default: it collects
+public profiles of people who never visited the site, so decide whether you want that and keep the privacy policy in step.
+
+To honour a removal request, run `npm run psn:track -- --hide TheirOnlineId`: they disappear from lookups, search and
+leaderboards.
+
+## Home page feeds
+
+"Latest platinums", "Top this week" and "Most played this month" merge members' synced history with tracked players' recent
+games (`PsnPlayerTitle`) and snapshots. Platinum dates are exact: they're read from the trophy list, a few per refresh.
+"Popular guides" only has what members write; while it's empty it lists the most-played games that still need a guide.
 
 ## Trophy lists and "duplicate" games
 
 PSN gives every platform, and often every region, its own trophy list. Rainbow Six Siege has a PS4 list and a PS5 list;
 small games often have four regional lists per platform. Each list is its own row in the `Game` table because progress,
 trophies and rarity differ between them.
+
+The catalogue only contains lists the site has seen on someone's profile, because PSN has no public game search. To
+fill gaps, the first view of a game page probes neighbouring list ids in the background (lists released together get
+consecutive `NPWR` numbers) and adds any with the same title. Some cross-gen games (Fall Guys, for example) have no
+separate PS5 list at all: PS5 players earn the PS4 list.
 
 Lists of the same game share a `titleKey` (the title lowercased with punctuation, trademark symbols and accents removed,
 see `titleKey()` in `src/lib/utils.ts`). Search and the games page show one entry per `titleKey` with its platforms and
@@ -171,7 +194,7 @@ list count, and every game page has a switcher between its lists. After changing
 
 ```
 prisma/            schema, fictional demo catalogue, seed script
-scripts/           psn-check, psn-import, psn-track and backfill-titles CLI tools
+scripts/           psn-check, psn-import, psn-track, psn-discover and backfill-titles CLI tools
 src/actions/       server actions (auth, account and PSN, friends, community)
 src/lib/           db, auth, trophy maths, stats, leaderboards, privacy, rate limiting, PSN providers, lookup and catalogue
 src/components/    UI kit, skeletons, trophy list, tips, generated art
