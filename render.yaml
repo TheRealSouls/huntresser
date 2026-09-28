@@ -26,6 +26,11 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+      # Twitch developer app for IGDB game details (optional).
+      - key: IGDB_CLIENT_ID
+        sync: false
+      - key: IGDB_CLIENT_SECRET
+        sync: false
       - key: SITE_OPERATOR_NAME
         sync: false
       - key: SITE_CONTACT_EMAIL

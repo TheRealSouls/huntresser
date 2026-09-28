@@ -7,6 +7,7 @@ import { flag } from "@/lib/countries";
 import { after } from "next/server";
 import { siblingLists } from "@/lib/games";
 import { probeSiblings } from "@/lib/psn/siblings";
+import { enrichGame, igdbEnabled } from "@/lib/igdb";
 import { isDemoMode } from "@/lib/psn/sync";
 import { formatDate, parseJsonArray } from "@/lib/utils";
 import { GameArt, SceneArt } from "@/components/art";
@@ -40,7 +41,12 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   const viewerId = await getSessionUserId();
 
   const [guides, myProgress, myTrophies, platEarners, sessions] = await Promise.all([
-    prisma.guide.findMany({ where: { gameId: game.id }, orderBy: { views: "desc" }, include: { author: true } }),
+    // Guides written on another platform's list count for this one too.
+    prisma.guide.findMany({
+      where: game.titleKey ? { game: { titleKey: game.titleKey } } : { gameId: game.id },
+      orderBy: { views: "desc" },
+      include: { author: true },
+    }),
     viewerId ? prisma.userGame.findUnique({ where: { userId_gameId: { userId: viewerId, gameId: game.id } } }) : null,
     viewerId
       ? prisma.userTrophy.findMany({ where: { userId: viewerId, trophy: { gameId: game.id } }, select: { trophyId: true, earnedAt: true } })
@@ -58,6 +64,8 @@ export default async function GamePage({ params, searchParams }: { params: Promi
       include: { _count: { select: { members: true } } },
     }),
   ]);
+  const estimateSource =
+    guides.length > 0 ? `From ${guides.length} guide${guides.length === 1 ? "" : "s"}` : game.difficulty == null ? "Needs a guide" : undefined;
 
   const plat = game.trophies.find((t) => t.type === "PLATINUM");
   const counts = (type: string) => game.trophies.filter((t) => t.type === type).length;
@@ -68,6 +76,10 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   // Look for this game's other trophy lists (PS5, other regions) once, after the page is sent.
   if (!isDemoMode() && !game.siblingsProbedAt) {
     after(() => probeSiblings(game.id).catch((err) => console.error("[siblings]", err)));
+  }
+  // Release date, description, screenshots and trailer come from IGDB, also after the page is sent.
+  if (igdbEnabled() && !game.igdbCheckedAt) {
+    after(() => enrichGame(game.id).catch((err) => console.error("[igdb]", err)));
   }
   // Label repeated platforms "PS4 (2)" so regional stacks are distinguishable.
   const seen = new Map<string, number>();
@@ -152,9 +164,9 @@ export default async function GamePage({ params, searchParams }: { params: Promi
         <div className="min-w-0 space-y-10">
           {/* Estimates */}
           <StatGrid className="grid-cols-2 xl:grid-cols-4">
-            <Stat label="Difficulty" value={<span className="text-sm"><DifficultyMeter value={game.difficulty} /></span>} />
-            <Stat label="Time to platinum" value={game.hoursToPlatinum ? `~${game.hoursToPlatinum}h` : "n/a"} />
-            <Stat label="Playthroughs" value={game.playthroughs ?? "n/a"} />
+            <Stat label="Difficulty" value={<span className="text-sm"><DifficultyMeter value={game.difficulty} /></span>} sub={estimateSource} />
+            <Stat label="Time to platinum" value={game.hoursToPlatinum ? `~${game.hoursToPlatinum}h` : "n/a"} sub={estimateSource} />
+            <Stat label="Playthroughs" value={game.playthroughs ?? "n/a"} sub={estimateSource} />
             <Stat
               label="Platinum rate"
               value={!plat ? "No platinum" : plat.earnedRate != null ? `${plat.earnedRate.toFixed(1)}%` : "n/a"}
@@ -175,10 +187,26 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                   <SceneArt key={s} seed={`${game.slug}-${s}`} hue={game.coverHue} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={s} src={s} alt={`${game.title} screenshot`} className="aspect-video rounded-sm object-cover" />
+                  <img
+                    key={s}
+                    src={s}
+                    alt={`${game.title} screenshot`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="aspect-video w-full border border-line bg-black object-cover"
+                  />
                 ),
               )}
             </div>
+            {game.igdbId && (
+              <p className="mt-2 text-xs text-faint">
+                Release date, description, screenshots and trailer from{" "}
+                <a href="https://www.igdb.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-text">
+                  IGDB
+                </a>
+                .
+              </p>
+            )}
           </section>
           )}
 

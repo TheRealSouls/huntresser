@@ -79,7 +79,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           We use a small number of service providers to run the site, such as our hosting and database provider, and Formspree,
-          which receives contact form messages and forwards them to us by email. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network. If a provider is outside the UK or EEA,
+          which receives contact form messages and forwards them to us by email. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network and game details from IGDB. Game pages
+          load screenshots from IGDB&apos;s image server and trailers from YouTube (in privacy-enhanced mode), which see your IP address
+          when your browser fetches them. If a provider is outside the UK or EEA,
           we rely on an adequacy decision or standard contractual clauses.
         </p>
 

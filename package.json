@@ -21,7 +21,9 @@
     "demo:user": "tsx scripts/demo-user.ts",
     "db:recompute-progress": "tsx scripts/recompute-progress.ts",
     "db:from-sqlite": "tsx scripts/sqlite-to-postgres.ts",
-    "db:backfill-titles": "tsx scripts/backfill-titles.ts"
+    "db:backfill-titles": "tsx scripts/backfill-titles.ts",
+    "db:estimates": "tsx scripts/refresh-estimates.ts",
+    "igdb:import": "tsx scripts/igdb-import.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

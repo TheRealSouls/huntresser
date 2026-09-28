@@ -204,6 +204,10 @@ model Game {
 
   // When we last looked for sibling trophy lists (other regions/platforms) next to this one.
   siblingsProbedAt DateTime?
+  // IGDB match for release date, description, genre, screenshots and trailer.
+  // igdbCheckedAt is set even when nothing matched, so a title is looked up once.
+  igdbId           Int?
+  igdbCheckedAt    DateTime?
 
   groups       TrophyGroup[]
   trophies     Trophy[]

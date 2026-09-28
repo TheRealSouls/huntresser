@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { slugify, youtubeId } from "@/lib/utils";
+import { refreshEstimates } from "@/lib/estimates";
 import type { FormState } from "./auth";
 
 // ─── Tips ────────────────────────────────────────────────────────────────────
@@ -110,8 +111,9 @@ export async function createGuide(_: FormState, fd: FormData): Promise<FormState
       },
     },
   });
+  await refreshEstimates([game.id]);
   revalidatePath("/guides");
-  revalidatePath(`/games/${game.slug}`);
+  revalidatePath("/games", "layout");
   redirect(`/guides/${slug}`);
 }
 

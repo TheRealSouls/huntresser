@@ -13,6 +13,7 @@ import { toPsnError } from "@/lib/psn/real";
 import { getProvider, syncUntilDone, syncUser } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
 import { isDemoAccount } from "@/lib/demo";
+import { refreshEstimates } from "@/lib/estimates";
 import type { FormState } from "./auth";
 
 const DEMO_LOCKED = "The shared demo account can't do this. Create your own account to link PSN or delete an account.";
@@ -164,7 +165,10 @@ export async function deleteAccount(_: FormState, fd: FormData): Promise<FormSta
 
   // Their public PSN summary goes too, so they drop off the leaderboards.
   if (user.psn?.accountId) await prisma.psnPlayer.deleteMany({ where: { accountId: user.psn.accountId } });
+  // Their guides go with them, so the estimates they fed are worked out again without them.
+  const guided = await prisma.guide.findMany({ where: { authorId: user.id }, select: { gameId: true }, distinct: ["gameId"] });
   await prisma.user.delete({ where: { id: user.id } });
+  await refreshEstimates(guided.map((g) => g.gameId));
   await destroySession();
   redirect("/?deleted=1");
 }

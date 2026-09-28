@@ -144,6 +144,29 @@ leaderboards.
 games (`PsnPlayerTitle`) and snapshots. Platinum dates are exact: they're read from the trophy list, a few per refresh.
 "Popular guides" only has what members write; while it's empty it lists the most-played games that still need a guide.
 
+## Difficulty and time to platinum
+
+These come from guides. When someone posts a guide, the game's difficulty becomes the average of its guides' ratings and
+the hours and playthroughs the median, shared by all of the game's trophy lists (PS4, PS5, regions). Games without a
+guide show "Needs a guide". `npm run db:estimates` recalculates every game, for example after importing guides.
+
+## Game details from IGDB
+
+PSN only has trophy data. Release dates, descriptions, genres, developer, publisher, screenshots and trailers come from
+[IGDB](https://www.igdb.com), which is free through a Twitch developer app:
+
+1. Sign in at [dev.twitch.tv/console](https://dev.twitch.tv/console) (turn on two-factor authentication on your Twitch
+   account if it asks), then **Register Your Application**: any name, OAuth redirect URL `http://localhost`,
+   category **Website Integration**, client type **Confidential**.
+2. Open the app, copy the **Client ID**, click **New Secret** and copy that too.
+3. Put them in `.env` (and in Render, **Environment**) as `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET`.
+4. Test one title: `npm run igdb:import -- "Hollow Knight"`. Then fill the whole catalogue with `npm run igdb:import`
+   (about 4 games a second; safe to stop and run again).
+
+After that, each game page looks itself up on its first visit, and `GET /api/cron/games` (same `CRON_SECRET` header)
+catches the rest, 100 games per call. Only names that match exactly are used, so a few games stay without details
+rather than getting the wrong trailer. Existing values are never overwritten.
+
 ## Trophy lists and "duplicate" games
 
 PSN gives every platform, and often every region, its own trophy list. Rainbow Six Siege has a PS4 list and a PS5 list;
@@ -181,6 +204,7 @@ list count, and every game page has a switcher between its lists. After changing
 | Profiles, platinum tracker, milestones, friends | `/u/[username]`, `/u/[username]/[game]`, `/friends` |
 | Live PSN profile lookup (any public player) | `/psn/[onlineId]`, `src/lib/psn/lookup.ts` |
 | Game database, DLC pages, trophy pages | `/games`, `/games/[slug]`, `/games/[slug]/dlc/[group]`, `/trophies/[id]` |
+| Release dates, screenshots, trailers (IGDB) and guide-based estimates | `src/lib/igdb.ts`, `src/lib/estimates.ts` |
 | Guides with roadmaps, missables, collectibles, tips | `/guides`, `/guides/[slug]`, `/guides/new` |
 | Compare two members side by side | `/compare` |
 | Leaderboards (global, country, friends; all time, weekly, monthly) | `/leaderboards`, `src/lib/leaderboard.ts` |
@@ -215,7 +239,7 @@ Render hosts the website, Neon holds the data. Both have free plans that don't n
 6. **Keep data fresh (optional).** At cron-job.org, add two jobs every 10 minutes, each with the header
    `Authorization: Bearer <CRON_SECRET>` (copy it from Render, **Environment**):
    `https://<your-site>/api/cron/sync` and `https://<your-site>/api/cron/players`. They also wake the site so it
-   isn't asleep when people visit.
+   isn't asleep when people visit. With IGDB keys set, add `https://<your-site>/api/cron/games` every 30 minutes too.
 7. In Formspree, add the Render address to the form's allowed domains.
 
 Free Render sites sleep after 15 minutes without visitors; the first request afterwards takes up to a minute. The data is
