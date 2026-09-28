@@ -16,6 +16,10 @@ export default function PrivacyPage() {
           This policy explains what personal data {SITE.name} collects, why, and what you can do about it. The data controller is{" "}
           {SITE.operator}. For anything privacy related, email <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>.
         </p>
+        <p>
+          We handle personal data under the EU General Data Protection Regulation (GDPR) and {SITE.jurisdiction}&apos;s Data
+          Protection Acts 1988 to 2018. Our lead supervisory authority is the Data Protection Commission.
+        </p>
 
         <h2>What we collect</h2>
         <h3>When you create an account</h3>
@@ -81,8 +85,8 @@ export default function PrivacyPage() {
           We use a small number of service providers to run the site, such as our hosting and database provider, and Formspree,
           which receives contact form messages and forwards them to us by email. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network and game details from IGDB. Game pages
           load screenshots from IGDB&apos;s image server and trailers from YouTube (in privacy-enhanced mode), which see your IP address
-          when your browser fetches them. If a provider is outside the UK or EEA,
-          we rely on an adequacy decision or standard contractual clauses.
+          when your browser fetches them. If a provider is outside the European Economic Area, we rely on a European Commission
+          adequacy decision or standard contractual clauses.
         </p>
 
         <h2>How long we keep it</h2>
@@ -97,9 +101,13 @@ export default function PrivacyPage() {
         <p>
           You can access, correct, export or delete your data. Most of this is self-service: edit your profile in{" "}
           <Link href="/settings">Settings</Link>, download everything with &quot;Download my data&quot;, or delete your account there.
-          You can also object to processing, ask us to restrict it, or complain to your data protection authority (in the UK,
-          that&apos;s the ICO). Use the <Link href="/contact?topic=privacy">contact form</Link> or email{" "}
-          <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a> and we&apos;ll reply within one month.
+          You can also object to processing or ask us to restrict it. Use the <Link href="/contact?topic=privacy">contact form</Link>{" "}
+          or email <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a> and we&apos;ll reply within one month.
+        </p>
+        <p>
+          If you&apos;re unhappy with how we handle your data, you can complain to the Data Protection Commission in{" "}
+          {SITE.jurisdiction} at <a href="https://www.dataprotection.ie">dataprotection.ie</a>, or to the data protection authority in
+          the EU country where you live or work.
         </p>
 
         <h2>Children</h2>
@@ -108,8 +116,8 @@ export default function PrivacyPage() {
         <h2>Security</h2>
         <p>
           Passwords are hashed with bcrypt, sessions are signed and sent over HTTPS only, and access to production data is limited.
-          No system is perfectly secure. If we have a breach that puts you at risk, we&apos;ll tell you and the regulator as the law
-          requires.
+          No system is perfectly secure. If we have a breach that puts your data at risk, we&apos;ll report it to the Data Protection
+          Commission within 72 hours and tell you if it&apos;s likely to affect you seriously, as the GDPR requires.
         </p>
 
         <h2>Changes</h2>

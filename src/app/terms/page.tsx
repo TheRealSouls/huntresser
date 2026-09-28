@@ -98,8 +98,9 @@ export default function TermsPage() {
 
         <h2>11. Law</h2>
         <p>
-          These terms are governed by the law of {SITE.jurisdiction}. If you live in the EU or UK, you keep the protection of the
-          mandatory consumer laws where you live.
+          These terms are governed by the laws of {SITE.jurisdiction}, and the courts of {SITE.jurisdiction} deal with any dispute
+          about them. If you use the site as a consumer and live outside {SITE.jurisdiction}, you keep the protection of the
+          mandatory consumer laws where you live, and you can also bring a claim in your local courts.
         </p>
 
         <h2>12. Contact</h2>
