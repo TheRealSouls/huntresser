@@ -64,7 +64,7 @@ export default async function FriendsPage() {
           {ids.length === 0 ? (
             <EmptyState title="No friends yet">Add hunters by username or PSN ID to compare trophies.</EmptyState>
           ) : (
-            <div className="card overflow-x-auto">
+            <div className="card overflow-x-auto" role="region" aria-label="Friends leaderboard table" tabIndex={0}>
               <table className="w-full min-w-[560px] text-sm">
                 <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
                   <tr>

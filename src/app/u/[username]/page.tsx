@@ -125,7 +125,7 @@ async function GamesTab({ userId, username, sort }: { userId: string; username: 
                   {ug.lastEarned && <span>last trophy {timeAgo(ug.lastEarned)}</span>}
                 </div>
                 <div className="mt-2 flex items-center gap-3">
-                  <ProgressBar value={ug.progress} tone={ug.progress === 100 ? "plat" : "accent"} className="max-w-md" />
+                  <ProgressBar value={ug.progress} tone={ug.progress === 100 ? "plat" : "accent"} className="max-w-md" label={`${ug.game.title} completion`} />
                   <span className="w-10 text-right text-sm font-semibold tabular-nums">{ug.progress}%</span>
                 </div>
               </div>
@@ -163,7 +163,7 @@ async function PlatinumTracker({ userId, username }: { userId: string; username:
                 <GameArt title={ug.game.title} hue={ug.game.coverHue} iconUrl={ug.game.iconUrl} size="sm" className="w-12" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{ug.game.title}</div>
-                  <ProgressBar value={ug.progress} className="mt-1.5" />
+                  <ProgressBar value={ug.progress} className="mt-1.5" label={`${ug.game.title} completion`} />
                 </div>
                 <span className="font-bold tabular-nums">{ug.progress}%</span>
               </Link>

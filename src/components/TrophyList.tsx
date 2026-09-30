@@ -73,7 +73,7 @@ export function TrophyList({
               </div>
               {earned && (
                 <div className="flex w-full items-center gap-3">
-                  <ProgressBar value={total ? (got / total) * 100 : 0} className="flex-1" />
+                  <ProgressBar value={total ? (got / total) * 100 : 0} className="flex-1" label={`${g.isDlc ? g.name : "Base game"} completion`} />
                   <span className="text-xs tabular-nums text-muted">
                     {earnedHere.length}/{list.length}
                   </span>
@@ -108,7 +108,7 @@ export function TrophyList({
                         )}
                       </SpoilerSwap>
                       <div className="min-w-0 flex-1">
-                        <SpoilerSwap concealed={<RevealButton />}>
+                        <SpoilerSwap concealed={<RevealButton />} focusOnReveal>
                           <Link href={`/trophies/${t.id}`} className="group block">
                             <div className="flex items-center gap-1.5 font-semibold group-hover:underline group-hover:underline-offset-4">
                               {t.iconUrl && <TrophyIcon type={t.type} size={14} />}

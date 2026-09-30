@@ -68,6 +68,8 @@ async function main() {
     { path: "/terms" },
     { path: "/privacy" },
     { path: "/contact" },
+    { path: "/accessibility", contains: "WCAG" },
+    { path: "/contact?topic=accessibility", contains: "Accessibility problem" },
     { path: "/contact?topic=removal", contains: "PSN Online ID" },
     { path: "/login" },
     { path: "/register" },

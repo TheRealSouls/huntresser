@@ -18,27 +18,30 @@
   --shadow-card: 0 1px 2px rgb(17 24 39 / 0.05);
   --shadow-raised: 0 12px 32px -8px rgb(17 24 39 / 0.16), 0 2px 6px rgb(17 24 39 / 0.06);
 
-  /* White page, cool grey neutrals, a bright red accent. Text colours are
-     dark enough for 4.5:1 on white; faint is for secondary labels only. */
+  /* White page, cool grey neutrals, a bright red accent. Every text colour
+     below reaches WCAG AA (4.5:1) on bg, surface-2 and surface-3, and white
+     text reaches 4.5:1 on accent. line is decorative; line-strong (3:1) is
+     for the edges of form fields, which people need to find. */
   --color-bg: #ffffff;
   --color-surface: #ffffff;
   --color-surface-2: #f6f7f9;
   --color-surface-3: #eceef2;
   --color-line: #e3e6eb;
+  --color-line-strong: #8a8f98;
   --color-text: #12151b;
   --color-muted: #4f5663;
-  --color-faint: #7c828d;
+  --color-faint: #666b74;
 
-  --color-accent: #e5352c;
-  --color-accent-hi: #c92a22;
-  --color-accent-text: #cc2f27;
+  --color-accent: #dc332a;
+  --color-accent-hi: #b92a22;
+  --color-accent-text: #c92e26;
 
-  --color-plat: #6b7889;
-  --color-gold: #946a0e;
-  --color-silver: #6f7680;
+  --color-plat: #606c7b;
+  --color-gold: #8b640d;
+  --color-silver: #656b74;
   --color-bronze: #97532a;
 
-  --color-ultra: #946a0e;
+  --color-ultra: #8b640d;
   --color-very: #a8521b;
   --color-rare: #2f6f67;
   --color-common: #62574f;
@@ -83,8 +86,8 @@ body {
   @apply btn border-bad/50 bg-transparent text-bad hover:bg-bad/10;
 }
 @utility input {
-  @apply w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-faint
-    outline-none transition-colors focus:border-accent-text;
+  @apply w-full rounded-lg border border-line-strong bg-bg px-3 py-2 text-sm text-text placeholder:text-faint
+    transition-colors focus:border-accent-text;
 }
 @utility label {
   @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted;
@@ -96,7 +99,7 @@ body {
   @apply border-accent-text text-text;
 }
 @utility link {
-  @apply text-accent-text underline-offset-4 hover:underline;
+  @apply text-accent-text underline decoration-accent-text/40 underline-offset-4 hover:decoration-accent-text;
 }
 @utility prose-guide {
   @apply whitespace-pre-line text-sm leading-relaxed text-text/90;

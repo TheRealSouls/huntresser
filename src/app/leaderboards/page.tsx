@@ -168,7 +168,7 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
               ))}
             </ol>
           )}
-          <div className="card overflow-x-auto">
+          <div className="card overflow-x-auto" role="region" aria-label="Leaderboard table" tabIndex={0}>
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-line bg-surface-2 text-left text-xs uppercase tracking-wider text-muted">
                 <tr>

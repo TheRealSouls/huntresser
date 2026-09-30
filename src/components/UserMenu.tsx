@@ -9,7 +9,10 @@ import { ChevronDownIcon } from "./icons";
 
 /**
  * Profile button in the navbar (avatar, name, chevron) with a dropdown of
- * account options. Closes on outside click, Escape and navigation.
+ * account options. A disclosure (button + list of links), which screen
+ * readers and keyboards handle without extra arrow-key rules. Closes on
+ * outside click, tabbing away, Escape (focus goes back to the button) and
+ * navigation.
  */
 export function UserMenu({
   avatar,
@@ -34,7 +37,11 @@ export function UserMenu({
     const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      ref.current?.querySelector("button")?.focus();
+    };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -53,12 +60,20 @@ export function UserMenu({
   ];
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      // Tabbing out of the menu closes it, so it never hangs open behind the focus.
+      onBlur={(e) => {
+        if (open && !ref.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-controls="account-menu"
+        aria-label={`Account menu for ${name}${pending > 0 ? `, ${pending} friend request${pending === 1 ? "" : "s"}` : ""}`}
         className="flex items-center gap-2.5 rounded-lg border border-line bg-surface py-1 pl-1 pr-2.5 hover:border-faint"
       >
         <span className="relative">
@@ -73,19 +88,19 @@ export function UserMenu({
         <ChevronDownIcon size={16} className={clsx("text-muted transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-raised)]">
+        <nav id="account-menu" aria-label="Account" className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-raised)]">
           {items.map(([href, label, extra]) => (
-            <Link key={href} href={href} role="menuitem" className="flex items-center px-4 py-2.5 text-sm hover:bg-surface-2">
+            <Link key={href} href={href} className="flex items-center px-4 py-2.5 text-sm hover:bg-surface-2">
               {label}
               {extra}
             </Link>
           ))}
           <form action={logout} className="mt-1 border-t border-line pt-1">
-            <button role="menuitem" className="w-full px-4 py-2.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-text">
+            <button className="w-full px-4 py-2.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-text">
               Log out
             </button>
           </form>
-        </div>
+        </nav>
       )}
     </div>
   );

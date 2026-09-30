@@ -87,13 +87,13 @@ export default async function TrophyPage({ params }: { params: Promise<Params> }
             {t.hidden && <span className="chip">Hidden</span>}
             {t.group.isDlc && <span className="chip border-very/40 text-very">DLC</span>}
           </div>
-          <SpoilerSwap concealed={<RevealButton className="text-xl" />}>
+          <SpoilerSwap concealed={<RevealButton className="text-xl" heading />} focusOnReveal>
             <h1 className="text-3xl font-bold">{t.name}</h1>
             <p className="text-muted">{t.description}</p>
           </SpoilerSwap>
           {mine && <p className="mt-2 text-sm font-semibold text-good">You earned this on {formatDate(mine.earnedAt)}</p>}
         </div>
-        <Link href={`/games/${t.game.slug}`} className="hidden sm:block">
+        <Link href={`/games/${t.game.slug}`} className="hidden sm:block" aria-label={t.game.title}>
           <GameArt title={t.game.title} hue={t.game.coverHue} iconUrl={t.game.iconUrl} className="w-20" />
         </Link>
       </header>

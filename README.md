@@ -274,6 +274,28 @@ branch's connection string in your local `.env`. A branch starts as a copy of th
 
 Every push to `main` redeploys automatically.
 
+## Accessibility
+
+The target is WCAG 2.2 AA, and `/accessibility` is the public statement (reports go to the contact form's
+"Accessibility problem" topic). What keeps it there:
+
+- Colour tokens in `src/app/globals.css` are chosen for contrast: every text colour reaches 4.5:1 on white and on both
+  grey surfaces, white reaches 4.5:1 on the red, and form fields use `line-strong` (3:1). Check new colours before adding
+  them, and don't lower text contrast with opacity.
+- Text links are underlined (`.link`), not told apart by colour alone.
+- Every page has one `h1` and headings in order; landmarks (header, nav, main, footer) and a skip link come from the layout.
+- Links that only contain an image get an `aria-label`; decorative images and icons are `aria-hidden` or have empty `alt`.
+  `TrophyIcon` announces its grade, and `ProgressBar` takes a `label`.
+- The account menu is a disclosure (button with `aria-expanded`), closes on Escape and returns focus. Revealing a hidden
+  trophy moves focus to it. Tables that scroll sideways are focusable regions.
+- Motion is off under `prefers-reduced-motion`, and targets are at least 24 by 24 px.
+
+Home, games, a game, a trophy, guides, the forum index, leaderboards, search, sessions, a PSN profile, a member profile,
+compare, settings, the guide editor, login, sign-up, contact, privacy and accessibility pages were checked with axe-core
+(WCAG 2.2 A/AA rules plus best practices) with no violations. Forum section and thread pages weren't, because no live
+threads existed yet. Rerun it after
+UI changes: load the page, inject axe from cdnjs in the browser console, and call `axe.run()`.
+
 ## Production checklist
 
 - Set `SESSION_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL` and the `SITE_*` operator/contact variables.

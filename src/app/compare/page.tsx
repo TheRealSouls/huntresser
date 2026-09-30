@@ -213,7 +213,7 @@ function Progress({ g, other }: { g?: { progress: number; hasPlatinum: boolean }
   const ahead = !other || g.progress > other.progress;
   return (
     <div className="flex items-center gap-2">
-      <ProgressBar value={g.progress} tone={g.progress === 100 ? "plat" : "accent"} className="flex-1" />
+      <ProgressBar value={g.progress} tone={g.progress === 100 ? "plat" : "accent"} className="flex-1" label="Completion" />
       <span className={clsx("w-10 text-right text-xs tabular-nums", ahead ? "font-bold text-text" : "text-muted")}>
         {g.progress}%
       </span>

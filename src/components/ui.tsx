@@ -42,11 +42,22 @@ export function Avatar({
   );
 }
 
-export function ProgressBar({ value, className, tone = "accent" }: { value: number; className?: string; tone?: "accent" | "plat" | "gold" }) {
+/** `label` is what screen readers announce with the percentage, e.g. "Hollow Knight completion". */
+export function ProgressBar({
+  value,
+  className,
+  tone = "accent",
+  label = "Completion",
+}: {
+  value: number;
+  className?: string;
+  tone?: "accent" | "plat" | "gold";
+  label?: string;
+}) {
   const color = tone === "plat" ? "bg-plat" : tone === "gold" ? "bg-gold" : "bg-accent-text";
   const v = Math.max(0, Math.min(100, value));
   return (
-    <div className={clsx("h-1.5 w-full bg-surface-3", className)} role="progressbar" aria-valuenow={v} aria-valuemin={0} aria-valuemax={100}>
+    <div className={clsx("h-1.5 w-full bg-surface-3", className)} role="progressbar" aria-label={label} aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100}>
       <div className={clsx("h-full", color)} style={{ width: `${v}%` }} />
     </div>
   );
@@ -57,7 +68,7 @@ export function LevelMeter({ level, progress, detail, className }: { level: numb
   const maxed = level >= MAX_TROPHY_LEVEL;
   return (
     <div className={className}>
-      <ProgressBar value={maxed ? 100 : progress} tone={maxed ? "plat" : "accent"} />
+      <ProgressBar value={maxed ? 100 : progress} tone={maxed ? "plat" : "accent"} label={maxed ? "Trophy level (max)" : `Progress to trophy level ${level + 1}`} />
       <div className="mt-1 text-[11px] text-muted">
         {maxed ? "Max level" : `${progress}% to level ${level + 1}`}
         {detail && <> · {detail}</>}
@@ -83,7 +94,7 @@ export function RarityBadge({ rate, className }: { rate: number | null | undefin
   const r = rarityOf(rate);
   return (
     <span className={clsx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold", RARITY_STYLE[r.key], className)}>
-      {r.label} <span className="tabular-nums opacity-80">{rate.toFixed(1)}%</span>
+      {r.label} <span className="tabular-nums">{rate.toFixed(1)}%</span>
     </span>
   );
 }

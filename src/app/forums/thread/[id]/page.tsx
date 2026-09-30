@@ -82,7 +82,7 @@ export default async function ThreadPage({ params, searchParams }: { params: Pro
 
       <header className="mb-6 flex flex-wrap items-start gap-4">
         {thread.game && (
-          <Link href={`/games/${thread.game.slug}`} className="shrink-0">
+          <Link href={`/games/${thread.game.slug}`} className="shrink-0" aria-label={thread.game.title}>
             <GameArt title={thread.game.title} hue={thread.game.coverHue} iconUrl={thread.game.iconUrl} size="sm" className="w-14" />
           </Link>
         )}

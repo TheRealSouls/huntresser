@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useActionState, useContext, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import clsx from "clsx";
 import type { FormState } from "@/actions/auth";
@@ -73,16 +73,41 @@ export function Spoiler({ hidden, children }: { hidden: boolean; children: React
   return <SpoilerContext.Provider value={{ shown, reveal: () => setShown(true) }}>{children}</SpoilerContext.Provider>;
 }
 
-export function SpoilerSwap({ concealed, children }: { concealed: ReactNode; children: ReactNode }) {
-  return <>{useContext(SpoilerContext).shown ? children : concealed}</>;
+/**
+ * `focusOnReveal` (use it on the text part) moves keyboard focus to the
+ * revealed content, since the Reveal button it replaces disappears.
+ */
+export function SpoilerSwap({ concealed, children, focusOnReveal = false }: { concealed: ReactNode; children: ReactNode; focusOnReveal?: boolean }) {
+  const { shown } = useContext(SpoilerContext);
+  const ref = useRef<HTMLDivElement>(null);
+  const wasShown = useRef(shown);
+  useEffect(() => {
+    if (focusOnReveal && shown && !wasShown.current) ref.current?.focus();
+    wasShown.current = shown;
+  }, [shown, focusOnReveal]);
+  if (!shown) return <>{concealed}</>;
+  return focusOnReveal ? (
+    <div ref={ref} tabIndex={-1} className="outline-none">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
 }
 
-export function RevealButton({ className }: { className?: string }) {
+/** `heading` makes "Hidden trophy" the page's h1, for the trophy page itself. */
+export function RevealButton({ className, heading = false }: { className?: string; heading?: boolean }) {
   const { reveal } = useContext(SpoilerContext);
+  const Title = heading ? "h1" : "div";
   return (
     <div className={className}>
-      <div className="font-semibold text-muted">Hidden trophy</div>
-      <button type="button" onClick={reveal} className="text-sm text-accent-text underline-offset-4 hover:underline">
+      <Title className={clsx("font-semibold text-muted", heading && "text-3xl font-bold")}>Hidden trophy</Title>
+      <button
+        type="button"
+        onClick={reveal}
+        aria-label="Reveal this hidden trophy (spoiler)"
+        className="text-sm text-accent-text underline-offset-4 hover:underline"
+      >
         Reveal (spoiler)
       </button>
     </div>

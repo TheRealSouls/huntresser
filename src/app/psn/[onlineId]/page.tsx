@@ -323,7 +323,7 @@ async function TitleList({ accountId, onlineId, page }: { accountId: string; onl
                   <span>last trophy {timeAgo(t.lastUpdated)}</span>
                 </div>
                 <div className="mt-2 flex items-center gap-3">
-                  <ProgressBar value={t.progress} tone={t.progress === 100 ? "plat" : "accent"} className="max-w-sm" />
+                  <ProgressBar value={t.progress} tone={t.progress === 100 ? "plat" : "accent"} className="max-w-sm" label={`${t.title} completion`} />
                   <span className="w-10 text-right text-xs font-semibold tabular-nums">{t.progress}%</span>
                 </div>
               </div>

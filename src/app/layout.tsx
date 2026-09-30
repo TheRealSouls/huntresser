@@ -47,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 PlayStation logos are trademarks of Sony Interactive Entertainment Inc.
               </p>
             </div>
-            <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3">
+            <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 sm:grid-cols-3 [&>a]:inline-flex [&>a]:min-h-7 [&>a]:items-center">
               <Link href="/games" className="hover:text-text">Games</Link>
               <Link href="/guides" className="hover:text-text">Guides</Link>
               <Link href="/forums" className="hover:text-text">Forums</Link>
@@ -56,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/terms" className="hover:text-text">Terms of service</Link>
               <Link href="/privacy" className="hover:text-text">Privacy policy</Link>
               <Link href="/contact" className="hover:text-text">Contact</Link>
+              <Link href="/accessibility" className="hover:text-text">Accessibility</Link>
             </nav>
           </div>
           <div className="mx-auto mt-6 max-w-7xl px-4 text-faint sm:px-6">

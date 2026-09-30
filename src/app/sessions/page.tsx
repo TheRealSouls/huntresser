@@ -38,7 +38,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
             return (
               <article key={s.id} id={s.id} className="card scroll-mt-24 p-5 target:border-accent-text">
                 <div className="flex flex-wrap items-start gap-4">
-                  <Link href={`/games/${s.game.slug}`}>
+                  <Link href={`/games/${s.game.slug}`} aria-label={s.game.title}>
                     <GameArt title={s.game.title} hue={s.game.coverHue} iconUrl={s.game.iconUrl} size="sm" className="w-14" />
                   </Link>
                   <div className="min-w-0 flex-1">
@@ -53,7 +53,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
                       </span>{" "}
                       <span className="text-muted">
                         · hosted by{" "}
-                        <Link href={`/u/${s.host.username}`} className="hover:text-text">{s.host.psn?.onlineId ?? s.host.username}</Link>{" "}
+                        <Link href={`/u/${s.host.username}`} className="underline underline-offset-2 hover:text-text">{s.host.psn?.onlineId ?? s.host.username}</Link>{" "}
                         {flag(s.host.country)}
                       </span>
                     </div>
@@ -78,7 +78,12 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
                 </div>
                 <div className="mt-4 flex -space-x-2">
                   {s.members.map((m) => (
-                    <Link key={m.userId} href={`/u/${m.user.username}`} title={m.user.psn?.onlineId ?? m.user.username}>
+                    <Link
+                      key={m.userId}
+                      href={`/u/${m.user.username}`}
+                      title={m.user.psn?.onlineId ?? m.user.username}
+                      aria-label={m.user.psn?.onlineId ?? m.user.username}
+                    >
                       <Avatar name={m.user.psn?.onlineId ?? m.user.username} hue={m.user.avatarHue} url={m.user.psn?.avatarUrl} size={30} className="ring-surface" />
                     </Link>
                   ))}

@@ -1,6 +1,7 @@
 export const TOPICS = {
   general: "General question",
   bug: "Something is broken",
+  accessibility: "Accessibility problem",
   psn: "PSN linking or syncing",
   content: "Report a guide, tip or user",
   privacy: "My data (access, export, deletion)",

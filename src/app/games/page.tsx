@@ -107,6 +107,7 @@ export default async function GamesPage({ searchParams }: { searchParams: Promis
         <span className="ml-auto text-sm text-muted">{total.toLocaleString("en-GB")} games</span>
       </div>
 
+      <h2 className="sr-only">Results</h2>
       {games.length === 0 ? (
         <EmptyState title="No games match" action={<Link href="/games" className="btn-ghost">Clear filters</Link>} />
       ) : (

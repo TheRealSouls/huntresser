@@ -131,7 +131,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                   <span className="font-semibold">Your progress</span>
                   <span className="tabular-nums">{myProgress.progress}%</span>
                 </div>
-                <ProgressBar value={myProgress.progress} />
+                <ProgressBar value={myProgress.progress} label="Your completion" />
               </div>
             )}
           </div>
