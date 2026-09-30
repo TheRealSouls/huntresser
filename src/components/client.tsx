@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import clsx from "clsx";
 import type { FormState } from "@/actions/auth";
@@ -61,20 +61,28 @@ export function ConfirmButton({ message, children, className = "btn-danger" }: {
   );
 }
 
-/** Hidden trophies stay spoiler-free until the viewer opts in. */
-export function HiddenTrophyReveal({ name, description }: { name: string; description: string }) {
-  const [shown, setShown] = useState(false);
-  if (shown)
-    return (
-      <div>
-        <div className="font-semibold">{name}</div>
-        <div className="text-sm text-muted">{description}</div>
-      </div>
-    );
+/**
+ * Hidden trophies stay spoiler-free until the viewer opts in. Wrap the whole
+ * trophy in <Spoiler>, then put <SpoilerSwap> around each part that changes
+ * (the icon and the text), so one click reveals all of them together.
+ */
+const SpoilerContext = createContext<{ shown: boolean; reveal: () => void }>({ shown: true, reveal: () => {} });
+
+export function Spoiler({ hidden, children }: { hidden: boolean; children: ReactNode }) {
+  const [shown, setShown] = useState(!hidden);
+  return <SpoilerContext.Provider value={{ shown, reveal: () => setShown(true) }}>{children}</SpoilerContext.Provider>;
+}
+
+export function SpoilerSwap({ concealed, children }: { concealed: ReactNode; children: ReactNode }) {
+  return <>{useContext(SpoilerContext).shown ? children : concealed}</>;
+}
+
+export function RevealButton({ className }: { className?: string }) {
+  const { reveal } = useContext(SpoilerContext);
   return (
-    <div>
+    <div className={className}>
       <div className="font-semibold text-muted">Hidden trophy</div>
-      <button type="button" onClick={() => setShown(true)} className="text-sm text-accent-text underline-offset-4 hover:underline">
+      <button type="button" onClick={reveal} className="text-sm text-accent-text underline-offset-4 hover:underline">
         Reveal (spoiler)
       </button>
     </div>
@@ -83,7 +91,7 @@ export function HiddenTrophyReveal({ name, description }: { name: string; descri
 
 /** Collectible checklist that remembers ticks in localStorage (per guide step). */
 export function StepCheck({ id }: { id: string }) {
-  const key = `huntresser:step:${id}`;
+  const key = `trophypilot:step:${id}`;
   const [done, setDone] = useState(false);
   useEffect(() => {
     try {

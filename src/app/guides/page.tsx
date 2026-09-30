@@ -9,7 +9,7 @@ import { DifficultyMeter, EmptyState, PageHeader } from "@/components/ui";
 export const metadata: Metadata = { title: "Trophy Guides", description: "Community trophy guides and platinum roadmaps." };
 
 export default async function GuidesPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
-  const { q, sort = "popular" } = await searchParams;
+  const { q, sort = "new" } = await searchParams;
   const guides = await prisma.guide.findMany({
     where: q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { game: { title: { contains: q, mode: "insensitive" } } }] } : undefined,
     orderBy: sort === "new" ? { createdAt: "desc" } : sort === "easy" ? { difficulty: "asc" } : { views: "desc" },
@@ -27,8 +27,8 @@ export default async function GuidesPage({ searchParams }: { searchParams: Promi
           <input type="hidden" name="sort" value={sort} />
         </form>
         {[
-          ["popular", "Popular"],
           ["new", "Newest"],
+          ["popular", "Popular"],
           ["easy", "Easiest plats"],
         ].map(([k, l]) => (
           <Link key={k} href={`/guides?sort=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={clsx("chip", sort === k && "chip-active")}>

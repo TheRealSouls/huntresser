@@ -30,7 +30,7 @@ async function session(userId: string) {
 async function main() {
   const demo = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
   if (!demo) throw new Error("No demo user. Run npm run demo:user first.");
-  const cookie = `huntresser_session=${await session(demo.id)}`;
+  const cookie = `trophypilot_session=${await session(demo.id)}`;
 
   const [game, dlc, trophy, guide, member, player, session_] = await Promise.all([
     prisma.game.findFirst({ where: { trophies: { some: {} } }, select: { slug: true } }),

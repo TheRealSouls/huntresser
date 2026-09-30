@@ -1,4 +1,4 @@
-# Huntresser
+# TrophyPilot
 
 A PlayStation trophy hunting site: accounts with PSN linking, trophy tracking, live PSN profile lookups, a game database built
 from PSN, community guides, leaderboards and search.
@@ -12,7 +12,7 @@ npm run setup      # creates the tables and seeds demo data
 npm run dev        # http://localhost:3000
 ```
 
-Demo login: `demo@huntresser.gg` / `trophyhunter`. Every seeded user has the same password. `npm run db:reset` wipes the
+Demo login: `demo@trophypilot.com` / `trophyhunter`. Every seeded user has the same password. `npm run db:reset` wipes the
 database and reseeds it. On a live (real PSN) database, `npm run demo:user` creates just the demo login. The demo account
 can't link PSN or be deleted, because its password is public.
 
@@ -24,7 +24,7 @@ Sony, which is why real players (for example GamingWithFlacy) and real games (fo
 
 ## Connecting to real PSN
 
-Sony has no public API or "Sign in with PlayStation" for other sites. Like other trophy sites, Huntresser reads PSN with a
+Sony has no public API or "Sign in with PlayStation" for other sites. Like other trophy sites, TrophyPilot reads PSN with a
 **service account**: a normal PSN account whose session token (the NPSSO) the server uses to call Sony's mobile API.
 
 1. **Make a PSN account for the site.** Use a separate account, not your main one. The token grants full access to whichever
@@ -82,10 +82,10 @@ sync their real trophies.
 ## How players link their real PSN account
 
 Sony doesn't offer "Sign in with PlayStation" to other sites. Its OAuth is only available to companies with a signed
-partner agreement (that's how Discord and similar integrations work). So Huntresser does what PSNProfiles, Exophase and
+partner agreement (that's how Discord and similar integrations work). So TrophyPilot does what PSNProfiles, Exophase and
 TrueTrophies do: it proves ownership instead of signing in.
 
-1. The player creates a Huntresser account (email and password).
+1. The player creates a TrophyPilot account (email and password).
 2. In Settings they enter their PSN Online ID and get a code such as `HUNT-3F9A1C`.
 3. They paste the code into their PSN About Me (PS5: Profile, Edit Profile, About Me; or the PlayStation App).
 4. They press Verify. The server reads their public profile through the service account and checks the code is there. Only
@@ -98,13 +98,19 @@ button on a profile). A player's trophies must be visible to "Anyone" in their P
 
 Never ask players for their own NPSSO token or PSN password. A token gives full control of their PSN account.
 
-**Syncing big libraries:** a run processes at most `PSN_SYNC_TITLES_PER_RUN` changed trophy lists (default 60) and remembers
-where it stopped. Right after linking, the server keeps running batches in the background until the library is imported.
-After that, only lists that changed since the last sync are fetched.
+**Syncing big libraries:** a run processes at most `PSN_SYNC_TITLES_PER_RUN` changed trophy lists (default 60),
+`PSN_SYNC_CONCURRENCY` at a time (default 4), and remembers where it stopped. Right after linking, and after a *Sync now*
+that leaves a backlog, the server keeps running batches in the background until the library is imported. After that, a
+sync only reads PSN's game list up to the last synced game (PSN sorts it newest first) and fetches the lists that
+changed. Measured against real PSN: a 10-game library imports in about 3 s, a routine sync with nothing new takes under
+half a second, and big libraries import at about 0.25 to 0.5 s per game.
 
-**Live sync:** `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` re-syncs the 5 stalest accounts, plus any
-that are part-way through an import. Call it from any scheduler, for example every 10 minutes. Users can also press
-*Sync now* (60 s cooldown).
+**Sync schedule and plans:** `src/lib/plans.ts` sets how often each plan syncs. Free accounts sync automatically every 7
+days and can press *Sync now* once an hour. Premium (`User.plan = "PREMIUM"`, not sold yet) syncs automatically every hour
+and can press *Sync now* every minute. `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` syncs up to
+`PSN_SYNC_PER_RUN` accounts (default 10) that are due, plus any part-way through an import. It answers straight away and
+syncs after the response, so call it every 10 minutes from any scheduler. Every sync uses the site's one PSN token, so
+very short automatic intervals for many accounts would need more tokens.
 
 ## Leaderboards
 
@@ -113,7 +119,7 @@ is fetched (a lookup on `/psn/<OnlineID>`, `psn:import`, `psn:track` or a member
 in `PsnPlayer`: level, trophy counts, avatar and the country of the PSN account (decoded from the profile's `npId`).
 
 - **All-time points and platinum boards** (global and country) rank those real PSN totals, members and non-members alike.
-  Non-members link to their PSN profile page; members link to their Huntresser profile.
+  Non-members link to their PSN profile page; members link to their TrophyPilot profile.
 - **Weekly, monthly, completion, ultra rare and friends boards** need a full trophy history, so only members who have
   linked PSN appear on them.
 - Players whose PSN trophies are private are never ranked. Members who are private, friends-only or opted out of
@@ -232,9 +238,9 @@ Render hosts the website, Neon holds the data. Both have free plans that don't n
    **Connect**, switch **Connection pooling** off, and copy the connection string.
 2. **Optional: bring your local data.** In `.env`, set `DATABASE_URL` to that string, then run
    `npx prisma db push` and `npm run db:from-sqlite`.
-3. **Create the website.** At dashboard.render.com: **New**, then **Blueprint**, pick `TheRealSouls/huntresser`.
+3. **Create the website.** At dashboard.render.com: **New**, then **Blueprint**, pick `TheRealSouls/huntresser` (the repository keeps its original name).
 4. When Render asks for values: `DATABASE_URL` is the Neon string, `PSN_NPSSO` is your token, and
-   `NEXT_PUBLIC_SITE_URL` is `https://huntresser.onrender.com` (or the address Render shows).
+   `NEXT_PUBLIC_SITE_URL` is `https://huntresser.onrender.com` (or the address Render shows), or `https://trophypilot.com` once your domain points at Render.
 5. Click **Apply** and wait for **Live**. `/api/health` should show `"mode":"live"`.
 6. **Keep data fresh (optional).** At cron-job.org, add two jobs every 10 minutes, each with the header
    `Authorization: Bearer <CRON_SECRET>` (copy it from Render, **Environment**):

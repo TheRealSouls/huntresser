@@ -31,7 +31,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
       include: { user: { include: { psn: true } }, trophy: { include: { game: true } } },
     }),
     getLeaderboard({ metric: "points", period: "weekly", scope: "global", limit: 5 }),
-    prisma.guide.findMany({ orderBy: { views: "desc" }, take: 3, include: { game: true, author: true } }),
+    prisma.guide.findMany({ orderBy: { createdAt: "desc" }, take: 4, include: { game: true, author: true } }),
     trendingGameIds(monthAgo, 6),
     gamesNeedingGuides(5),
   ]);
@@ -203,7 +203,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               </Link>
             }
           >
-            Popular guides
+            Latest guides
           </SectionTitle>
           <ul className="divide-y divide-line border-y border-line">
             {guides.map((g) => (
@@ -214,7 +214,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                     <div className="text-sm font-semibold group-hover:underline group-hover:underline-offset-4">{g.title}</div>
                     <div className="line-clamp-2 text-xs text-muted">{g.summary}</div>
                     <div className="mt-1 text-xs text-faint">
-                      by {g.author.username} · {formatNumber(g.views)} views
+                      by {g.author.username} · {timeAgo(g.createdAt)}
                     </div>
                   </div>
                 </Link>

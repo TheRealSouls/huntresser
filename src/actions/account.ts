@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { destroySession, requireUser } from "@/lib/auth";
 import { COUNTRIES } from "@/lib/countries";
 import { toPsnError } from "@/lib/psn/real";
-import { getProvider, syncUntilDone, syncUser } from "@/lib/psn/sync";
+import { getProvider, SyncCooldownError, syncUntilDone, syncUser } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
 import { isDemoAccount } from "@/lib/demo";
 import { refreshEstimates } from "@/lib/estimates";
@@ -67,7 +67,7 @@ export async function startPsnLink(_: FormState, fd: FormData): Promise<FormStat
 
   const existing = await prisma.psnAccount.findUnique({ where: { onlineId } });
   if (existing && existing.userId !== user.id) {
-    if (existing.verified) return { error: "That PSN account is already linked to another Huntresser profile." };
+    if (existing.verified) return { error: "That PSN account is already linked to another TrophyPilot profile." };
     // An unverified claim proves nothing. Whoever verifies ownership first wins.
     await prisma.psnAccount.delete({ where: { id: existing.id } });
   }
@@ -118,7 +118,7 @@ export async function verifyPsn(_: FormState): Promise<FormState> {
 
   // Import in the background after the response is sent: a big library takes
   // many capped runs. Progress shows from the SyncJob rows on the settings page.
-  after(() => syncUntilDone(user.id).catch((err) => console.error("[psn] initial sync failed", err)));
+  after(() => syncUntilDone(user.id, { trigger: "IMPORT" }).catch((err) => console.error("[psn] initial sync failed", err)));
   revalidatePath("/", "layout");
   redirect("/settings?linked=1");
 }
@@ -126,9 +126,13 @@ export async function verifyPsn(_: FormState): Promise<FormState> {
 export async function syncNow(_: FormState): Promise<FormState> {
   const user = await requireUser();
   try {
-    const job = await syncUser(user.id);
+    // The first run answers straight away; a big backlog carries on in the background.
+    const job = await syncUser(user.id, { trigger: "MANUAL" });
+    if (job.remaining > 0) {
+      after(() => syncUntilDone(user.id, { trigger: "IMPORT" }).catch((err) => console.error("[psn] sync failed", err)));
+    }
     revalidatePath("/", "layout");
-    const more = job.remaining ? ` ${job.remaining} more games still to import; sync again in a minute.` : "";
+    const more = job.remaining ? ` ${job.remaining} more games are importing in the background.` : "";
     return {
       ok:
         (job.gamesSynced === 0 && !job.remaining
@@ -138,6 +142,7 @@ export async function syncNow(_: FormState): Promise<FormState> {
             : `Checked ${job.gamesSynced} games, no new trophies.`) + more,
     };
   } catch (e) {
+    if (!(e instanceof SyncCooldownError)) revalidatePath("/settings");
     return { error: e instanceof Error ? e.message : "Sync failed." };
   }
 }

@@ -5,10 +5,10 @@ import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 import { rarityOf } from "@/lib/trophies";
 import { flag } from "@/lib/countries";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, timeAgo, secureUrl } from "@/lib/utils";
 import { GameArt } from "@/components/art";
 import { TrophyIcon } from "@/components/TrophyIcon";
-import { HiddenTrophyReveal } from "@/components/client";
+import { RevealButton, Spoiler, SpoilerSwap } from "@/components/client";
 import { Tips } from "@/components/Tips";
 import { Avatar, RarityBadge, Stat, StatGrid } from "@/components/ui";
 
@@ -56,10 +56,29 @@ export default async function TrophyPage({ params }: { params: Promise<Params> }
         <span className="mx-1">/</span> Trophy
       </nav>
 
+      <Spoiler hidden={t.hidden && !mine}>
       <header className="card mb-8 flex flex-wrap items-center gap-6 p-6 sm:p-8">
-        <div className="rounded-sm bg-surface-3 p-4">
-          <TrophyIcon type={t.type} size={64} />
-        </div>
+        <SpoilerSwap
+          concealed={
+            <div className="border border-line bg-surface-3 p-4">
+              <TrophyIcon type={t.type} size={64} />
+            </div>
+          }
+        >
+          {t.iconUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={secureUrl(t.iconUrl)}
+              alt={`${t.name} trophy icon`}
+              referrerPolicy="no-referrer"
+              className="h-24 w-24 shrink-0 border border-line bg-black object-contain"
+            />
+          ) : (
+            <div className="border border-line bg-surface-3 p-4">
+              <TrophyIcon type={t.type} size={64} />
+            </div>
+          )}
+        </SpoilerSwap>
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap gap-1.5">
             <span className="chip capitalize">{t.type.toLowerCase()}</span>
@@ -68,22 +87,17 @@ export default async function TrophyPage({ params }: { params: Promise<Params> }
             {t.hidden && <span className="chip">Hidden</span>}
             {t.group.isDlc && <span className="chip border-very/40 text-very">DLC</span>}
           </div>
-          {t.hidden && !mine ? (
-            <div className="text-xl">
-              <HiddenTrophyReveal name={t.name} description={t.description} />
-            </div>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold">{t.name}</h1>
-              <p className="text-muted">{t.description}</p>
-            </>
-          )}
+          <SpoilerSwap concealed={<RevealButton className="text-xl" />}>
+            <h1 className="text-3xl font-bold">{t.name}</h1>
+            <p className="text-muted">{t.description}</p>
+          </SpoilerSwap>
           {mine && <p className="mt-2 text-sm font-semibold text-good">You earned this on {formatDate(mine.earnedAt)}</p>}
         </div>
         <Link href={`/games/${t.game.slug}`} className="hidden sm:block">
           <GameArt title={t.game.title} hue={t.game.coverHue} iconUrl={t.game.iconUrl} className="w-20" />
         </Link>
       </header>
+      </Spoiler>
 
       <StatGrid className="mb-10 grid-cols-2 sm:grid-cols-4">
         <Stat label="PSN rarity" value={<RarityBadge rate={t.earnedRate} className="text-sm" />} sub={t.earnedRate != null ? rarityOf(t.earnedRate).label : "Not reported yet"} />

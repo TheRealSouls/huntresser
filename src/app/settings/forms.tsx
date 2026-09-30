@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { durationText } from "@/lib/plans";
 import { deleteAccount, startPsnLink, syncNow, updatePrivacy, updateProfile, verifyPsn } from "@/actions/account";
 import { SubmitButton } from "@/components/client";
 import { FormMessage } from "@/components/ui";
@@ -96,11 +98,42 @@ export function VerifyPsnButton() {
   );
 }
 
-export function SyncButton() {
+/**
+ * Sync now, switched off until the plan allows another manual sync. While a
+ * sync or import is running the page refreshes itself so progress shows up.
+ */
+export function SyncButton({ nextAt, busy }: { nextAt: string | null; busy: boolean }) {
   const [state, action] = useActionState(syncNow, null);
+  const router = useRouter();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => router.refresh(), 4_000);
+    return () => clearInterval(t);
+  }, [busy, router]);
+
+  const waitMs = nextAt ? new Date(nextAt).getTime() - now : 0;
   return (
     <form action={action} className="space-y-3">
-      <SubmitButton pendingText="Syncing trophies…">Sync now</SubmitButton>
+      <div className="flex flex-wrap items-center gap-3">
+        {!busy && waitMs > 0 ? (
+          <>
+            <button type="button" disabled className="btn-primary">
+              Sync now
+            </button>
+            <span className="text-xs text-muted">Available again in {durationText(waitMs)}</span>
+          </>
+        ) : (
+          <SubmitButton pendingText="Syncing trophies…" pending={busy || undefined}>
+            {busy ? "Syncing…" : "Sync now"}
+          </SubmitButton>
+        )}
+      </div>
       <FormMessage state={state} />
     </form>
   );

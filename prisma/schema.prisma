@@ -1,4 +1,4 @@
-// Huntresser data model.
+// TrophyPilot data model.
 // PostgreSQL (Neon's free tier works well). Enums are modelled as strings.
 
 generator client {
@@ -24,6 +24,8 @@ model User {
   profileVisibility  String   @default("PUBLIC")
   showOnLeaderboards Boolean  @default(true)
   showActivity       Boolean  @default(true)
+  // FREE | PREMIUM: how often trophies sync (see src/lib/plans.ts).
+  plan               String   @default("FREE")
   createdAt          DateTime @default(now())
 
   psn              PsnAccount?
@@ -76,6 +78,8 @@ model SyncJob {
   userId         String
   // RUNNING | SUCCESS | FAILED
   status         String    @default("RUNNING")
+  // MANUAL (Sync now) | AUTO (background schedule) | IMPORT (first import after linking)
+  trigger        String    @default("MANUAL")
   provider       String
   gamesSynced    Int       @default(0)
   trophiesSynced Int       @default(0)
@@ -88,6 +92,7 @@ model SyncJob {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startedAt])
+  @@index([userId, trigger, startedAt])
 }
 
 // When each PSN trophy list was last synced for a user, so a sync can resume
@@ -120,7 +125,7 @@ model PsnPlayer {
   points            Int       @default(0)
   // Trophy list set to private on PSN: kept off the boards.
   trophiesPrivate   Boolean   @default(false)
-  // Asked to be removed from Huntresser (see terms, section 4).
+  // Asked to be removed from TrophyPilot (see terms, section 4).
   hidden            Boolean   @default(false)
   firstSeenAt       DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

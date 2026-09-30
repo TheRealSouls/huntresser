@@ -155,7 +155,7 @@ async function seedGames() {
 async function seedUsers() {
   const passwordHash = await bcrypt.hash("trophyhunter", 10);
   const all = [
-    { username: "demo", onlineId: "Huntresser_Demo", country: "GB", bio: "Demo account. Have a look around.", visibility: "PUBLIC", email: "demo@huntresser.gg" },
+    { username: "demo", onlineId: "TrophyPilot_Demo", country: "GB", bio: "Demo account. Have a look around.", visibility: "PUBLIC", email: "demo@trophypilot.com" },
     ...USERS.map((u) => ({ ...u, email: `${u.username}@example.com` })),
   ];
   const users = [];
@@ -179,7 +179,7 @@ async function seedUsers() {
         },
       },
     });
-    await syncUser(user.id);
+    await syncUser(user.id, { trigger: "IMPORT" });
     users.push(user);
   }
   return users;
@@ -409,7 +409,7 @@ async function main() {
   await seedSessions(users);
   const [g, t, u, ut] = await Promise.all([prisma.game.count(), prisma.trophy.count(), prisma.user.count(), prisma.userTrophy.count()]);
   console.log(`Done: ${g} games, ${t} trophies, ${u} users, ${ut} earned trophies.`);
-  console.log("Demo login: demo@huntresser.gg / trophyhunter");
+  console.log("Demo login: demo@trophypilot.com / trophyhunter");
 }
 
 main()

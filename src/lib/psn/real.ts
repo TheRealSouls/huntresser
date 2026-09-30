@@ -158,27 +158,49 @@ export class RealPsnProvider implements TrophyProvider {
     }
   }
 
-  async getTitles(accountId: string): Promise<PsnTitle[]> {
-    const out: PsnTitle[] = [];
-    let offset = 0;
-    for (;;) {
+  /**
+   * PSN returns trophy lists newest-first (by last update). With `since`, paging
+   * stops at the first page that reaches lists last updated at or before it,
+   * so a routine sync of a 20,000-game library is one request instead of 27.
+   * Without it, every page is fetched, several at a time.
+   */
+  async getTitles(accountId: string, { since }: { since?: Date } = {}): Promise<PsnTitle[]> {
+    const page = async (offset: number): Promise<{ total: number; titles: PsnTitle[] }> => {
       const res = await withTimeout(getUserTitles(await psnAuth(), accountId, { limit: PAGE, offset })).catch((e) => {
         throw toPsnError(e);
       });
-      for (const t of res.trophyTitles) {
-        out.push({
+      return {
+        total: res.totalItemCount,
+        titles: res.trophyTitles.map((t) => ({
           npCommunicationId: t.npCommunicationId,
           npServiceName: t.npServiceName,
           title: t.trophyTitleName,
           iconUrl: t.trophyTitleIconUrl ?? null,
           platforms: String(t.trophyTitlePlatform).split(","),
           lastUpdated: new Date(t.lastUpdatedDateTime),
-        });
+        })),
+      };
+    };
+
+    const first = await page(0);
+    const out: PsnTitle[] = [...first.titles];
+    const offsets: number[] = [];
+    for (let o = PAGE; o < first.total; o += PAGE) offsets.push(o);
+
+    if (since) {
+      for (const o of offsets) {
+        if (!out.length || out[out.length - 1].lastUpdated <= since) break;
+        out.push(...(await page(o)).titles);
       }
-      if (!res.nextOffset) break;
-      offset = res.nextOffset;
+      return out;
     }
-    return out;
+
+    // Four pages at a time, kept in order.
+    const pages: PsnTitle[][] = [];
+    for (let i = 0; i < offsets.length; i += 4) {
+      pages.push(...(await Promise.all(offsets.slice(i, i + 4).map(async (o) => (await page(o)).titles))));
+    }
+    return out.concat(...pages);
   }
 
   async getTitleDefinition(title: PsnTitle) {

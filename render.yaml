@@ -3,6 +3,7 @@
 # restarts and sleeping. See README, "Deploying for free (Render + Neon)".
 services:
   - type: web
+    # Kept from before the TrophyPilot rename: changing it makes Render create a second service.
     name: huntresser
     runtime: node
     plan: free

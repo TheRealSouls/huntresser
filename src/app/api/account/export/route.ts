@@ -37,7 +37,7 @@ export async function GET() {
   return new NextResponse(body, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="huntresser-${user.username}.json"`,
+      "Content-Disposition": `attachment; filename="trophypilot-${user.username}.json"`,
       "Cache-Control": "no-store",
     },
   });

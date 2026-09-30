@@ -1,5 +1,5 @@
 /**
- * Creates (or resets) the shared demo login, demo@huntresser.gg / trophyhunter,
+ * Creates (or resets) the shared demo login, demo@trophypilot.com / trophyhunter,
  * on a database that wasn't seeded with demo data (for example live PSN mode).
  * The demo account can't be deleted, can't link PSN and can't change its email.
  *
@@ -7,12 +7,17 @@
  */
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { DEMO_EMAIL, DEMO_PASSWORD, DEMO_USERNAME } from "../src/lib/demo";
+import { DEMO_EMAIL, DEMO_PASSWORD, DEMO_USERNAME, LEGACY_DEMO_EMAILS } from "../src/lib/demo";
 
 async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const clash = await prisma.user.findUnique({ where: { username: DEMO_USERNAME } });
-  if (clash && clash.email !== DEMO_EMAIL) throw new Error(`The username "${DEMO_USERNAME}" belongs to someone else.`);
+  if (clash && LEGACY_DEMO_EMAILS.includes(clash.email)) {
+    // The site was renamed: keep the same demo account, under the new email.
+    await prisma.user.update({ where: { id: clash.id }, data: { email: DEMO_EMAIL } });
+  } else if (clash && clash.email !== DEMO_EMAIL) {
+    throw new Error(`The username "${DEMO_USERNAME}" belongs to someone else.`);
+  }
   const user = await prisma.user.upsert({
     where: { email: DEMO_EMAIL },
     create: {

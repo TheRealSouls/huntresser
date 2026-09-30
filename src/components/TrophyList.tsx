@@ -1,7 +1,7 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { TrophyIcon } from "./TrophyIcon";
-import { HiddenTrophyReveal } from "./client";
+import { RevealButton, Spoiler, SpoilerSwap } from "./client";
 import { ProgressBar, RarityBadge } from "./ui";
 import { TROPHY_ORDER, TROPHY_POINTS, type TrophyType } from "@/lib/trophies";
 import { formatDate, secureUrl } from "@/lib/utils";
@@ -83,55 +83,65 @@ export function TrophyList({
             <ul className="divide-y divide-line">
               {list.map((t) => {
                 const at = earned?.get(t.id);
-                const showSpoiler = !t.hidden || !!at;
+                const dim = !!earned && !at;
+                const placeholder = (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-line bg-surface-2">
+                    <TrophyIcon type={t.type} size={24} dim={dim} />
+                  </div>
+                );
                 return (
-                  <li key={t.id} className={clsx("flex items-start gap-4 px-4 py-3", at && "bg-surface-2/60")}>
-                    {t.iconUrl && showSpoiler ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={secureUrl(t.iconUrl)}
-                        alt=""
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        className={clsx("h-11 w-11 shrink-0 border border-line bg-black object-contain", earned && !at && "opacity-40 grayscale")}
-                      />
-                    ) : (
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-line bg-surface-2">
-                        <TrophyIcon type={t.type} size={24} dim={!!earned && !at} />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      {showSpoiler ? (
-                        <Link href={`/trophies/${t.id}`} className="group block">
-                          <div className="flex items-center gap-1.5 font-semibold group-hover:underline group-hover:underline-offset-4">
-                            {t.iconUrl && <TrophyIcon type={t.type} size={14} />}
-                            {t.name}
-                          </div>
-                          <div className="text-sm text-muted">{t.description}</div>
-                        </Link>
-                      ) : (
-                        <HiddenTrophyReveal name={t.name} description={t.description} />
-                      )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        {t.missable && <span className="chip border-bad/50 text-bad">Missable</span>}
-                        {t.online && <span className="chip border-rare/50 text-rare">Online</span>}
-                        {t.hidden && showSpoiler && <span className="chip">Hidden</span>}
-                        {!!t._count?.tips && (
-                          <Link href={`/trophies/${t.id}#tips`} className="chip hover:text-text">
-                            {t._count.tips} tip{t._count.tips === 1 ? "" : "s"}
-                          </Link>
+                  // Hidden trophies you haven't earned keep their icon and text covered until you reveal them.
+                  <Spoiler key={t.id} hidden={t.hidden && !at}>
+                    <li className={clsx("flex items-start gap-4 px-4 py-3", at && "bg-surface-2/60")}>
+                      <SpoilerSwap concealed={placeholder}>
+                        {t.iconUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={secureUrl(t.iconUrl)}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            className={clsx("h-11 w-11 shrink-0 border border-line bg-black object-contain", dim && "opacity-40 grayscale")}
+                          />
+                        ) : (
+                          placeholder
                         )}
+                      </SpoilerSwap>
+                      <div className="min-w-0 flex-1">
+                        <SpoilerSwap concealed={<RevealButton />}>
+                          <Link href={`/trophies/${t.id}`} className="group block">
+                            <div className="flex items-center gap-1.5 font-semibold group-hover:underline group-hover:underline-offset-4">
+                              {t.iconUrl && <TrophyIcon type={t.type} size={14} />}
+                              {t.name}
+                            </div>
+                            <div className="text-sm text-muted">{t.description}</div>
+                          </Link>
+                        </SpoilerSwap>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {t.missable && <span className="chip border-bad/50 text-bad">Missable</span>}
+                          {t.online && <span className="chip border-rare/50 text-rare">Online</span>}
+                          {t.hidden && (
+                            <SpoilerSwap concealed={null}>
+                              <span className="chip">Hidden</span>
+                            </SpoilerSwap>
+                          )}
+                          {!!t._count?.tips && (
+                            <Link href={`/trophies/${t.id}#tips`} className="chip hover:text-text">
+                              {t._count.tips} tip{t._count.tips === 1 ? "" : "s"}
+                            </Link>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
-                      <RarityBadge rate={t.earnedRate} />
-                      {at ? (
-                        <span className="text-xs text-good">Earned {formatDate(at)}</span>
-                      ) : earned ? (
-                        <span className="text-xs text-faint">{ownerLabel ? `${ownerLabel} hasn't earned this` : "Not earned"}</span>
-                      ) : null}
-                    </div>
-                  </li>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+                        <RarityBadge rate={t.earnedRate} />
+                        {at ? (
+                          <span className="text-xs text-good">Earned {formatDate(at)}</span>
+                        ) : earned ? (
+                          <span className="text-xs text-faint">{ownerLabel ? `${ownerLabel} hasn't earned this` : "Not earned"}</span>
+                        ) : null}
+                      </div>
+                    </li>
+                  </Spoiler>
                 );
               })}
             </ul>

@@ -63,7 +63,7 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
 
   const user = await prisma.user.findFirst({ where: { OR: [{ email: id }, { username: id }] } });
   // Compare against a dummy hash when the user doesn't exist to keep timing uniform.
-  dummyHash ??= await bcrypt.hash("huntresser-timing-dummy", 12);
+  dummyHash ??= await bcrypt.hash("trophypilot-timing-dummy", 12);
   const ok = await bcrypt.compare(password, user?.passwordHash ?? dummyHash);
   if (!user || !ok) return { error: "Incorrect email/username or password." };
 

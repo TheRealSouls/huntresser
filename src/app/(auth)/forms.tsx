@@ -39,7 +39,7 @@ export function RegisterForm() {
       <div>
         <label htmlFor="username" className="label">Username</label>
         <input id="username" name="username" autoComplete="username" required pattern="[A-Za-z0-9_]{3,20}" className="input" />
-        <p className="mt-1 text-xs text-faint">Your handle on Huntresser. You&apos;ll link your PSN Online ID next.</p>
+        <p className="mt-1 text-xs text-faint">Your handle on TrophyPilot. You&apos;ll link your PSN Online ID next.</p>
       </div>
       <div>
         <label htmlFor="password" className="label">Password</label>

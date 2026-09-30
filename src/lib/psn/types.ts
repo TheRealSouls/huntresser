@@ -43,7 +43,8 @@ export type PsnEarnedTrophy = { psnTrophyId: number; earnedAt: Date | null; earn
 export interface TrophyProvider {
   readonly name: "psn" | "mock";
   getProfile(onlineId: string): Promise<PsnProfileData | null>;
-  getTitles(accountId: string): Promise<PsnTitle[]>;
+  /** Newest-first. With `since`, may stop early: only lists updated after it are guaranteed. */
+  getTitles(accountId: string, opts?: { since?: Date }): Promise<PsnTitle[]>;
   getTitleDefinition(title: PsnTitle): Promise<{ groups: PsnGroupDef[]; trophies: PsnTrophyDef[] }>;
   /** Every trophy in the title with earned state + global earn rate. */
   getTitleEarned(accountId: string, title: PsnTitle): Promise<PsnEarnedTrophy[]>;

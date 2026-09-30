@@ -1,8 +1,8 @@
 {
-  "name": "huntresser",
+  "name": "trophypilot",
   "version": "0.1.0",
   "private": true,
-  "description": "Huntresser: PlayStation trophy tracking, guides and leaderboards",
+  "description": "TrophyPilot: PlayStation trophy tracking, guides and leaderboards",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

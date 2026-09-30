@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { username } = await params;
   const { owner } = await loadProfile(username);
   const name = owner.psn?.onlineId ?? owner.username;
-  return { title: `${name}'s trophies`, description: `${name}'s PlayStation trophies, platinums and milestones on Huntresser.` };
+  return { title: `${name}'s trophies`, description: `${name}'s PlayStation trophies, platinums and milestones on TrophyPilot.` };
 }
 
 export default async function ProfilePage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {

@@ -51,7 +51,7 @@ export function ContactForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate={false}>
       {/* Subject line in the Formspree email, so messages are easy to sort. */}
-      <input type="hidden" name="_subject" value={`Huntresser contact: ${TOPICS[topic]}`} />
+      <input type="hidden" name="_subject" value={`TrophyPilot contact: ${TOPICS[topic]}`} />
       {username && <input type="hidden" name="account" value={username} />}
       {/* Honeypot: people never see or fill this, bots usually do. Formspree drops those submissions. */}
       <input type="text" name="_gotcha" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />

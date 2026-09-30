@@ -196,7 +196,7 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
                         <span title={countryName(r.country)}>{flag(r.country)}</span>
                         {r.userId && r.userId === user?.id && <span className="chip">You</span>}
                         {r.kind === "member" && r.userId !== user?.id && psnTotals && (
-                          <span className="chip" title="Has a Huntresser account">
+                          <span className="chip" title="Has a TrophyPilot account">
                             Member
                           </span>
                         )}

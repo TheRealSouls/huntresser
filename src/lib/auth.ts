@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./db";
 
-const COOKIE = "huntresser_session";
+const COOKIE = "trophypilot_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 function secret() {

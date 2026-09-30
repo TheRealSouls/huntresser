@@ -3,7 +3,8 @@ import Link from "next/link";
 import clsx from "clsx";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { isDemoMode } from "@/lib/psn/sync";
+import { isDemoMode, nextManualSyncAt } from "@/lib/psn/sync";
+import { durationText, everyText, planOf } from "@/lib/plans";
 import { SITE } from "@/lib/site";
 import { isDemoAccount } from "@/lib/demo";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -18,8 +19,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const user = await requireUser("/settings");
   const { welcome, linked } = await searchParams;
   const psn = user.psn;
-  const jobs = await prisma.syncJob.findMany({ where: { userId: user.id }, orderBy: { startedAt: "desc" }, take: 5 });
+  const [jobs, nextManual] = await Promise.all([
+    prisma.syncJob.findMany({ where: { userId: user.id }, orderBy: { startedAt: "desc" }, take: 5 }),
+    psn?.verified ? nextManualSyncAt(user.id, user.plan) : null,
+  ]);
   const demo = isDemoMode();
+  const plan = planOf(user);
+  const nextAuto = psn?.lastSyncedAt ? new Date(psn.lastSyncedAt.getTime() + plan.autoEveryMs) : null;
+  // A sync is running, or a big import is between runs: the page refreshes itself until it settles.
+  const latest = jobs[0];
+  const busy =
+    !!latest &&
+    ((latest.status === "RUNNING" && Date.now() - latest.startedAt.getTime() < 10 * 60_000) ||
+      (latest.remaining > 0 && Date.now() - latest.startedAt.getTime() < 2 * 60_000));
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -116,7 +128,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   View profile
                 </Link>
               </div>
-              <SyncButton />
+              <p className="text-xs text-muted">
+                {plan.label} plan: your trophies sync automatically {everyText(plan.autoEveryMs)}
+                {nextAuto && (nextAuto.getTime() > Date.now() ? ` (next in about ${durationText(nextAuto.getTime() - Date.now())})` : " (due now)")}
+                , and you can press Sync now {everyText(plan.manualEveryMs)}.
+              </p>
+              <SyncButton nextAt={nextManual?.toISOString() ?? null} busy={busy} />
               {jobs.length > 0 && (
                 <div>
                   <h3 className="label">Recent syncs</h3>

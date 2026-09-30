@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { cleanTitle, hashString, slugify, titleKey } from "../utils";
-import type { PsnTitle, TrophyProvider } from "./types";
+import type { PsnEarnedTrophy, PsnTitle, TrophyProvider } from "./types";
 
 /**
  * The game catalogue is built from PSN itself: every title seen on a synced
@@ -107,55 +107,60 @@ export function gameAsTitle(g: CatalogueGame): PsnTitle | null {
   };
 }
 
-/** Fetches and stores the trophy groups and trophies for a game if it has none yet. */
-export async function ensureGameTrophies(provider: TrophyProvider, game: CatalogueGame) {
+/**
+ * Fetches and stores the trophy groups and trophies for a game if it has none yet.
+ * Pass `earned` when you're fetching a player's progress on this list anyway:
+ * its earn rates fill in rarity, and it saves a second call for the same data.
+ */
+export async function ensureGameTrophies(
+  provider: TrophyProvider,
+  game: CatalogueGame,
+  { earned }: { earned?: Promise<PsnEarnedTrophy[]> } = {},
+) {
   const title = gameAsTitle(game);
   if (!title) return false;
   if ((await prisma.trophy.count({ where: { gameId: game.id } })) > 0) return false;
 
-  const def = await provider.getTitleDefinition(title);
-  const groupIds = new Map<string, string>();
-  for (const g of def.groups) {
-    const row = await prisma.trophyGroup.upsert({
-      where: { gameId_psnGroupId: { gameId: game.id, psnGroupId: g.psnGroupId } },
-      create: { gameId: game.id, psnGroupId: g.psnGroupId, name: g.name, isDlc: g.psnGroupId !== "default" },
-      update: { name: g.name },
-    });
-    groupIds.set(g.psnGroupId, row.id);
-  }
-
   // Global earn rates only come back on per-user calls, so borrow them from
-  // an account we know owns the title.
-  let rates = new Map<number, number>();
-  if (game.psnSampleAccountId && provider.name === "psn") {
-    try {
-      const earned = await provider.getTitleEarned(game.psnSampleAccountId, title);
-      rates = new Map(earned.filter((e) => e.earnedRate !== null).map((e) => [e.psnTrophyId, e.earnedRate!]));
-    } catch {
-      // Rarity is a nice-to-have; the list is still useful without it.
-    }
-  }
+  // an account we know owns the title (or the player being synced).
+  const ratesFrom =
+    earned ??
+    (game.psnSampleAccountId && provider.name === "psn" ? provider.getTitleEarned(game.psnSampleAccountId, title) : null);
+  const [def, rates] = await Promise.all([
+    provider.getTitleDefinition(title),
+    // Rarity is a nice-to-have; the list is still useful without it.
+    (ratesFrom ?? Promise.resolve([]))
+      .then((list) => new Map(list.filter((e) => e.earnedRate !== null).map((e) => [e.psnTrophyId, e.earnedRate!])))
+      .catch(() => new Map<number, number>()),
+  ]);
 
-  await prisma.$transaction(
-    def.trophies
-      .filter((t) => groupIds.has(t.psnGroupId))
-      .map((t) =>
-        prisma.trophy.upsert({
-          where: { gameId_psnTrophyId: { gameId: game.id, psnTrophyId: t.psnTrophyId } },
-          create: {
-            gameId: game.id,
-            groupId: groupIds.get(t.psnGroupId)!,
-            psnTrophyId: t.psnTrophyId,
-            name: t.name,
-            description: t.description,
-            type: t.type,
-            hidden: t.hidden,
-            iconUrl: t.iconUrl,
-            earnedRate: rates.get(t.psnTrophyId) ?? null,
-          },
-          update: {},
-        }),
-      ),
+  await prisma.trophyGroup.createMany({
+    data: def.groups.map((g) => ({ gameId: game.id, psnGroupId: g.psnGroupId, name: g.name, isDlc: g.psnGroupId !== "default" })),
+    skipDuplicates: true,
+  });
+  const groupIds = new Map(
+    (await prisma.trophyGroup.findMany({ where: { gameId: game.id }, select: { id: true, psnGroupId: true } })).map((g) => [
+      g.psnGroupId,
+      g.id,
+    ]),
   );
+
+  // One insert for the whole list; a concurrent import of the same game just skips.
+  await prisma.trophy.createMany({
+    data: def.trophies
+      .filter((t) => groupIds.has(t.psnGroupId))
+      .map((t) => ({
+        gameId: game.id,
+        groupId: groupIds.get(t.psnGroupId)!,
+        psnTrophyId: t.psnTrophyId,
+        name: t.name,
+        description: t.description,
+        type: t.type,
+        hidden: t.hidden,
+        iconUrl: t.iconUrl,
+        earnedRate: rates.get(t.psnTrophyId) ?? null,
+      })),
+    skipDuplicates: true,
+  });
   return true;
 }
