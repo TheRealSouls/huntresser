@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useForm, ValidationError } from "@formspree/react";
 import clsx from "clsx";
+import { Recaptcha, type RecaptchaHandle } from "@/components/Recaptcha";
 import { TOPICS, type Topic } from "./topics";
 
 /** Topics where knowing the PSN account saves a round trip. */
@@ -15,14 +16,37 @@ export function ContactForm({
   email,
   username,
   onlineId,
+  captchaSiteKey,
 }: {
   formId: string;
   topic: Topic;
   email?: string;
   username?: string;
   onlineId?: string;
+  /** Google reCAPTCHA v2 site key. Without one the form sends without a captcha. */
+  captchaSiteKey?: string;
 }) {
-  const [state, handleSubmit, reset] = useForm(formId);
+  // The token is read when the form is sent; Formspree checks it with the secret key.
+  const token = useRef<string | null>(null);
+  const captcha = useRef<RecaptchaHandle>(null);
+  const [captchaProblem, setCaptchaProblem] = useState<string | null>(null);
+  const [state, submit, reset] = useForm(formId, {
+    data: captchaSiteKey ? { "g-recaptcha-response": () => token.current ?? "" } : undefined,
+  });
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    if (captchaSiteKey && !token.current) {
+      e.preventDefault();
+      setCaptchaProblem("Tick \"I'm not a robot\" before sending.");
+      return;
+    }
+    return submit(e);
+  };
+
+  // A token works once: after a failed send, ask for a fresh tick.
+  useEffect(() => {
+    if (state.errors) captcha.current?.reset();
+  }, [state.errors]);
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const needsPsn = NEEDS_PSN.includes(topic);
 
@@ -136,6 +160,36 @@ export function ContactForm({
         <p role="alert" className="border border-bad/50 px-3 py-2 text-sm text-bad">
           {formErrors.map((e) => e.message).join(" ")}
         </p>
+      )}
+
+      {captchaSiteKey && (
+        <div>
+          <Recaptcha
+            ref={captcha}
+            siteKey={captchaSiteKey}
+            onChange={(t) => {
+              token.current = t;
+              if (t) setCaptchaProblem(null);
+            }}
+            onError={setCaptchaProblem}
+          />
+          {captchaProblem && (
+            <p role="alert" className="mt-2 text-sm text-bad">
+              {captchaProblem}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted">
+            This form is protected by reCAPTCHA, and Google&apos;s{" "}
+            <a href="https://policies.google.com/privacy" className="link" target="_blank" rel="noopener noreferrer">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a href="https://policies.google.com/terms" className="link" target="_blank" rel="noopener noreferrer">
+              Terms of Service
+            </a>{" "}
+            apply.
+          </p>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-4">

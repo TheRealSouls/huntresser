@@ -301,6 +301,10 @@ UI changes: load the page, inject axe from cdnjs in the browser console, and cal
 - Set `SESSION_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL` and the `SITE_*` operator/contact variables.
 - Contact messages go to Formspree form `NEXT_PUBLIC_FORMSPREE_FORM_ID` (default `xljdozjl`). In the Formspree dashboard,
   restrict the form to your production domain and turn on its spam filtering. The form also sends a `_gotcha` honeypot.
+- The contact form shows a Google reCAPTCHA v2 checkbox when `CAPTCHA_SITE_KEY` is set, and sends its token as
+  `g-recaptcha-response`. Formspree checks the token: in the form's settings, turn on reCAPTCHA with a custom key and
+  paste the **secret** key there. In the reCAPTCHA admin console, list every domain the site runs on (`localhost`, the
+  Render address, `trophypilot.com`).
 - Have the terms and privacy policy reviewed for your jurisdiction before launch.
 - The rate limiter in `src/lib/rate-limit.ts` is in-memory. Replace it with Redis (or similar) if you run more than one instance.
 - Security headers are set in `next.config.ts`. Serve the site over HTTPS only.

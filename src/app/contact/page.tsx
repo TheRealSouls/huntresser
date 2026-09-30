@@ -28,6 +28,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
             email={user?.email}
             username={user?.username}
             onlineId={user?.psn?.onlineId}
+            captchaSiteKey={process.env.CAPTCHA_SITE_KEY || undefined}
           />
         </div>
       </div>

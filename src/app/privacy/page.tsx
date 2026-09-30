@@ -42,6 +42,11 @@ export default function PrivacyPage() {
             or PSN Online ID if you include them.
           </li>
           <li>One essential cookie that keeps you signed in. We don&apos;t use advertising or analytics cookies.</li>
+          <li>
+            On the contact page only, Google reCAPTCHA checks that a person is sending the message. Google collects information such
+            as your IP address, browser and how you use the page, and may set its own cookie, under{" "}
+            <a href="https://policies.google.com/privacy">Google&apos;s privacy policy</a>.
+          </li>
           <li>Your guide checklist ticks, stored only in your own browser.</li>
           <li>
             Your IP address, briefly held in memory to rate limit logins and PSN lookups. It isn&apos;t written to our database.
@@ -82,8 +87,9 @@ export default function PrivacyPage() {
           posts are public. Your email address is never shown to other users.
         </p>
         <p>
-          We use a small number of service providers to run the site, such as our hosting and database provider, and Formspree,
-          which receives contact form messages and forwards them to us by email. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network and game details from IGDB. Game pages
+          We use a small number of service providers to run the site, such as our hosting and database provider, Formspree,
+          which receives contact form messages and forwards them to us by email, and Google reCAPTCHA, which filters spam on
+          the contact form. They process data only on our instructions. We read trophy data from Sony&apos;s PlayStation Network and game details from IGDB. Game pages
           load screenshots from IGDB&apos;s image server and trailers from YouTube (in privacy-enhanced mode), which see your IP address
           when your browser fetches them. If a provider is outside the European Economic Area, we rely on a European Commission
           adequacy decision or standard contractual clauses.
