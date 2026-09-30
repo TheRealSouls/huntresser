@@ -27,7 +27,7 @@ export function GameArt({
         alt=""
         loading="lazy"
         referrerPolicy="no-referrer"
-        className={clsx("aspect-square shrink-0 rounded-sm border border-line bg-surface-2 object-contain", className)}
+        className={clsx("aspect-square shrink-0 rounded-md border border-line bg-surface-2 object-contain", className)}
       />
     );
   }
@@ -46,7 +46,7 @@ export function GameArt({
   const id = `hatch-${hashString(title).toString(36)}`;
   return (
     <div
-      className={clsx("relative aspect-square shrink-0 overflow-hidden rounded-sm border border-line", className)}
+      className={clsx("relative aspect-square shrink-0 overflow-hidden rounded-md border border-line", className)}
       style={{ background: `hsl(${hue} 22% 20%)` }}
       aria-hidden
     >
@@ -82,7 +82,7 @@ export function SceneArt({ seed, hue, className }: { seed: string; hue: number; 
     return { d: `M0,100 L ${pts} L100,100 Z`, l: 20 - i * 4 };
   });
   return (
-    <div className={clsx("relative aspect-video overflow-hidden rounded-sm border border-line", className)} aria-hidden>
+    <div className={clsx("relative aspect-video overflow-hidden rounded-lg border border-line", className)} aria-hidden>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
         <rect width="100" height="100" fill={`hsl(${h} 20% 26%)`} />
         <circle cx={sunX} cy={30 + r() * 15} r={6 + r() * 6} fill={`hsl(${(h + 20) % 360} 22% 48%)`} />

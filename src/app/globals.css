@@ -12,35 +12,26 @@
 }
 
 @theme {
-  --font-sans: "Twemoji Country Flags", var(--font-plex-mono), ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  --font-sans: "Twemoji Country Flags", var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-sans);
-  --font-mono: var(--font-sans);
 
-  /* Hard edges everywhere. Tailwind's radius scale all maps to 2px, so any
-     `rounded-*` class stays crisp. */
-  --radius-xs: 1px;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 2px;
-  --radius-2xl: 2px;
-  --radius-3xl: 2px;
-  --radius-4xl: 2px;
+  --shadow-card: 0 1px 2px rgb(17 24 39 / 0.05);
+  --shadow-raised: 0 12px 32px -8px rgb(17 24 39 / 0.16), 0 2px 6px rgb(17 24 39 / 0.06);
 
-  /* White page, warm grey neutrals, a brick red accent. Text colours are
+  /* White page, cool grey neutrals, a bright red accent. Text colours are
      dark enough for 4.5:1 on white; faint is for secondary labels only. */
   --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-2: #f6f3f1;
-  --color-surface-3: #ebe6e2;
-  --color-line: #ddd5d0;
-  --color-text: #1d1816;
-  --color-muted: #62574f;
-  --color-faint: #857970;
+  --color-surface-2: #f6f7f9;
+  --color-surface-3: #eceef2;
+  --color-line: #e3e6eb;
+  --color-text: #12151b;
+  --color-muted: #4f5663;
+  --color-faint: #7c828d;
 
-  --color-accent: #b8352a;
-  --color-accent-hi: #9c2b21;
-  --color-accent-text: #a83025;
+  --color-accent: #e5352c;
+  --color-accent-hi: #c92a22;
+  --color-accent-text: #cc2f27;
 
   --color-plat: #6b7889;
   --color-gold: #946a0e;
@@ -64,7 +55,7 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-feature-settings: "zero" 0;
+  font-feature-settings: "cv11", "ss01";
 }
 
 :focus-visible {
@@ -75,30 +66,31 @@ body {
 /* Component classes are declared as utilities so Tailwind variants and
    overrides (e.g. `btn-primary w-full py-3`) compose predictably. */
 @utility card {
-  @apply rounded-sm border border-line bg-surface;
+  @apply rounded-xl border border-line bg-surface;
+  box-shadow: var(--shadow-card);
 }
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border px-4 py-2 text-sm font-semibold transition-colors
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-semibold transition-colors
     disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
   @apply btn border-accent bg-accent text-white hover:border-accent-hi hover:bg-accent-hi;
 }
 @utility btn-ghost {
-  @apply btn border-line bg-transparent text-text hover:border-muted hover:bg-surface-2;
+  @apply btn border-line bg-surface text-text hover:border-faint hover:bg-surface-2;
 }
 @utility btn-danger {
   @apply btn border-bad/50 bg-transparent text-bad hover:bg-bad/10;
 }
 @utility input {
-  @apply w-full rounded-sm border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-faint
+  @apply w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-faint
     outline-none transition-colors focus:border-accent-text;
 }
 @utility label {
   @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted;
 }
 @utility chip {
-  @apply inline-flex items-center gap-1 rounded-sm border border-line px-2 py-0.5 text-xs font-medium text-muted;
+  @apply inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted;
 }
 @utility chip-active {
   @apply border-accent-text text-text;
@@ -119,7 +111,7 @@ body {
 
 /* Skeleton placeholders shown while a route streams in. */
 @utility skeleton {
-  @apply rounded-sm bg-surface-3;
+  @apply rounded-md bg-surface-3;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 @keyframes skeleton-pulse {
@@ -143,6 +135,13 @@ body {
 }
 
 ::selection {
-  background: rgb(184 53 42 / 0.2);
+  background: rgb(229 53 44 / 0.18);
   color: var(--color-text);
+}
+
+/* Home hero background: fades out towards the text on the left and into the page below. */
+.hero-fade {
+  mask-image: linear-gradient(to right, transparent, #000 40%), linear-gradient(to bottom, #000 55%, transparent);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
 }

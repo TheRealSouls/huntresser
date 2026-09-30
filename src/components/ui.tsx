@@ -27,13 +27,13 @@ export function Avatar({
         height={size}
         loading="lazy"
         referrerPolicy="no-referrer"
-        className={clsx("shrink-0 rounded-sm bg-surface-3 object-cover", className)}
+        className={clsx("shrink-0 rounded-md bg-surface-3 object-cover", className)}
         style={{ width: size, height: size }}
       />
     );
   return (
     <span
-      className={clsx("inline-flex shrink-0 items-center justify-center rounded-sm font-bold text-white/90", className)}
+      className={clsx("inline-flex shrink-0 items-center justify-center rounded-md font-bold text-white/90", className)}
       style={{ width: size, height: size, fontSize: Math.max(10, size * 0.42), background: `hsl(${artHue(hue)} 26% 30%)` }}
       aria-hidden
     >
@@ -85,6 +85,44 @@ export function RarityBadge({ rate, className }: { rate: number | null | undefin
     <span className={clsx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold", RARITY_STYLE[r.key], className)}>
       {r.label} <span className="tabular-nums opacity-80">{rate.toFixed(1)}%</span>
     </span>
+  );
+}
+
+/** A card with a titled header (icon, uppercase title, optional link on the right), as on the home page. */
+export function Panel({
+  title,
+  icon,
+  action,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  icon?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={clsx("card flex min-w-0 flex-col", className)}>
+      <header className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
+        {icon}
+        <h2 className="text-sm font-bold uppercase tracking-wide">{title}</h2>
+        {action && <div className="ml-auto">{action}</div>}
+      </header>
+      <div className="flex-1 px-5">{children}</div>
+    </section>
+  );
+}
+
+/** Red "See all →" style link for panel and section headers. */
+export function MoreLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="group inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline hover:underline-offset-4">
+      {children}
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 10h12M11 5l5 5-5 5" />
+      </svg>
+    </Link>
   );
 }
 

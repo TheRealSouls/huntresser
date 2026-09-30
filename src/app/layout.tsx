@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { MobileNav } from "@/components/NavLinks";
@@ -7,10 +7,9 @@ import { isDemoMode } from "@/lib/psn/sync";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
-const mono = IBM_Plex_Mono({
+const inter = Inter({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-mono",
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -28,8 +27,8 @@ export const viewport: Viewport = { themeColor: "#ffffff", colorScheme: "light" 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const year = new Date().getFullYear();
   return (
-    <html lang="en" className={mono.variable}>
-      <body className="min-h-screen font-sans text-[15px] antialiased">
+    <html lang="en" className={inter.variable}>
+      <body className="min-h-screen overflow-x-clip font-sans text-[15px] antialiased">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 btn-primary">
           Skip to content
         </a>

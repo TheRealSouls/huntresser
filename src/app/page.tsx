@@ -8,21 +8,46 @@ import { flag } from "@/lib/countries";
 import { GameArt } from "@/components/art";
 import { GameCard } from "@/components/GameCard";
 import { TrophyIcon } from "@/components/TrophyIcon";
-import { Avatar, Notice, RarityBadge, SectionTitle } from "@/components/ui";
+import { HeroCovers } from "@/components/HeroCovers";
+import { Avatar, MoreLink, Notice, Panel, RarityBadge } from "@/components/ui";
+import {
+  ArrowRightIcon,
+  BookIcon,
+  CalendarIcon,
+  ChartIcon,
+  FlameIcon,
+  GamepadIcon,
+  PuzzleIcon,
+  SearchIcon,
+  SparkIcon,
+  StackIcon,
+  TrophyLineIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { SITE } from "@/lib/site";
-import { gamesNeedingGuides, latestPlatinums, latestSessions, newDlc, newTrophyLists, siteTotals, trendingGameIds } from "@/lib/activity";
+import {
+  gamesNeedingGuides,
+  heroCovers,
+  latestPlatinums,
+  latestSessions,
+  newDlc,
+  newTrophyLists,
+  siteTotals,
+  trendingGameIds,
+} from "@/lib/activity";
 import { familiesFor } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
 const publicActivity = { showActivity: true, profileVisibility: "PUBLIC" } as const;
+const rowLink = "block truncate text-sm font-semibold hover:underline hover:underline-offset-4";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   const { deleted } = await searchParams;
   const user = await getCurrentUser();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
-  const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides, newLists, dlcs, sessions] = await Promise.all([
+  const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides, newLists, dlcs, sessions, covers] = await Promise.all([
     siteTotals(),
     latestPlatinums(6),
     prisma.userTrophy.findMany({
@@ -38,6 +63,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     newTrophyLists(8),
     newDlc(8),
     latestSessions(10),
+    heroCovers(24),
   ]);
   const listFamilies = await familiesFor(newLists.map((g) => g.titleKey));
   const { hunters, trophies: trophyCount, platinums: platCount } = totals;
@@ -59,95 +85,102 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     })
     .slice(0, 6);
 
+  const primaryCta = !user
+    ? { href: "/register", label: "Create a free account" }
+    : !user.psn?.verified
+      ? { href: "/settings#psn", label: "Link your PSN account" }
+      : { href: `/u/${user.username}`, label: "View my trophies" };
+
   return (
-    <div className="space-y-14">
+    <div className="space-y-8">
       {deleted && <Notice tone="good">Your account and all of its data have been deleted.</Notice>}
 
-      <section className="grid gap-10 border-b border-line pb-12 pt-4 lg:grid-cols-[1.4fr_1fr] lg:items-end">
-        <div>
-          <p className="mb-4 text-xs uppercase tracking-widest text-accent-text">For PlayStation trophy hunters</p>
-          <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-            Your trophies, your platinums, and the people chasing the same ones.
+      {/* Hero: text on the left, real game art behind the lookup card on the right. */}
+      <section className="relative -mt-8 grid gap-10 pb-6 pt-10 lg:min-h-[470px] lg:grid-cols-[1.1fr_1fr] lg:items-end">
+        <HeroCovers covers={covers} />
+        <div className="relative lg:self-center">
+          <p className="mb-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-accent-text">
+            For PlayStation trophy hunters
+            <span className="h-px w-10 bg-accent" aria-hidden />
+          </p>
+          <h1 className="max-w-2xl text-4xl font-extrabold leading-[1.04] tracking-tight sm:text-5xl xl:text-[3.6rem]">
+            Your trophies,
+            <br />
+            your platinums,
+            <br />
+            <span className="text-accent">and the people chasing the same ones.</span>
           </h1>
-          <p className="mt-5 max-w-xl text-muted">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
             Sync your PSN trophy list, plan a platinum with a community roadmap that flags the missables, and see where you rank
             in the world, your country and your friends list.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            {!user ? (
-              <>
-                <Link href="/register" className="btn-primary px-5 py-2.5">
-                  Create a free account
-                </Link>
-                <Link href="/login" className="btn-ghost px-5 py-2.5">
-                  Log in
-                </Link>
-              </>
-            ) : !user.psn?.verified ? (
-              <Link href="/settings#psn" className="btn-primary px-5 py-2.5">
-                Link your PSN account
-              </Link>
-            ) : (
-              <Link href={`/u/${user.username}`} className="btn-primary px-5 py-2.5">
-                View my trophies
-              </Link>
-            )}
-            <Link href="/games" className="btn-ghost px-5 py-2.5">
+            <Link href={primaryCta.href} className="btn-primary px-5 py-3 text-[15px]">
+              <TrophyLineIcon size={18} />
+              {primaryCta.label}
+              <ArrowRightIcon size={16} />
+            </Link>
+            <Link href="/games" className="btn-ghost px-5 py-3 text-[15px]">
+              <GamepadIcon size={18} />
               Browse games
             </Link>
           </div>
-          <p className="mt-8 text-xs text-muted">
-            <span className="text-text">{formatNumber(hunters)}</span> hunters ·{" "}
-            <span className="text-text">{formatNumber(trophyCount)}</span> trophies tracked ·{" "}
-            <span className="text-text">{formatNumber(platCount)}</span> platinums
+          <p className="mt-8 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
+            <span>
+              <strong className="font-semibold text-text">{formatNumber(hunters)}</strong> hunters
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              <strong className="font-semibold text-text">{formatNumber(trophyCount)}</strong> trophies tracked
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              <strong className="font-semibold text-text">{formatNumber(platCount)}</strong> platinums
+            </span>
           </p>
         </div>
 
-        <form action="/psn" className="card p-5" role="search">
-          <label htmlFor="psn-id" className="label">
+        <form action="/psn" role="search" className="relative rounded-xl border border-line bg-surface p-5 shadow-[var(--shadow-raised)] lg:mb-2">
+          <label htmlFor="psn-id" className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+            <UsersIcon size={18} />
             Look up any PSN profile
           </label>
           <div className="flex gap-2">
-            <input
-              id="psn-id"
-              name="id"
-              required
-              placeholder="PSN Online ID"
-              autoComplete="off"
-              spellCheck={false}
-              className="input"
-            />
-            <button className="btn-primary">Look up</button>
+            <div className="relative flex-1">
+              <SearchIcon size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+              <input
+                id="psn-id"
+                name="id"
+                required
+                placeholder="PSN Online ID"
+                autoComplete="off"
+                spellCheck={false}
+                className="input py-2.5 pl-10 text-[15px]"
+              />
+            </div>
+            <button className="btn-primary px-5 text-[15px]">Look up</button>
           </div>
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 text-sm text-muted">
             See any public player&apos;s avatar, level and recent games, even if they haven&apos;t joined {SITE.name} yet.
           </p>
         </form>
       </section>
 
-      <section className="grid gap-10 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
-        <div>
-          <SectionTitle
-            action={
-              <Link href="/leaderboards?metric=platinums" className="link text-xs">
-                Platinum leaders
-              </Link>
-            }
-          >
-            Latest platinums
-          </SectionTitle>
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <Panel
+          title="Latest platinums"
+          icon={<TrophyLineIcon />}
+          action={<MoreLink href="/leaderboards?metric=platinums">Platinum leaders</MoreLink>}
+        >
           {recentPlats.length === 0 ? (
-            <p className="text-sm text-muted">No platinums yet. They appear as players link their accounts or get tracked.</p>
+            <p className="py-4 text-sm text-muted">No platinums yet. They appear as players link their accounts or get tracked.</p>
           ) : (
-            <ul className="divide-y divide-line border-y border-line">
+            <ul className="divide-y divide-line">
               {recentPlats.map((p) => (
-                <li key={p.key} className="flex items-center gap-3 py-2.5">
-                  <GameArt title={p.game.title} hue={p.game.coverHue} iconUrl={p.game.iconUrl} size="sm" className="w-11" />
+                <li key={p.key} className="flex items-center gap-3 py-3">
+                  <GameArt title={p.game.title} hue={p.game.coverHue} iconUrl={p.game.iconUrl} size="sm" className="w-12 rounded-md" />
                   <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/games/${p.game.slug}`}
-                      className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
-                    >
+                    <Link href={`/games/${p.game.slug}`} className={rowLink}>
                       {p.game.title}
                     </Link>
                     <div className="truncate text-xs text-muted">
@@ -157,77 +190,51 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                       {flag(p.player.country)} · {timeAgo(p.at)}
                     </div>
                   </div>
-                  <TrophyIcon type="PLATINUM" size={22} />
+                  <TrophyIcon type="PLATINUM" size={24} />
                 </li>
               ))}
             </ul>
           )}
-        </div>
-        <div>
-          <SectionTitle
-            action={
-              <Link href="/leaderboards?period=weekly" className="link text-xs">
-                Full board
-              </Link>
-            }
-          >
-            Top this week
-          </SectionTitle>
-          <ol className="divide-y divide-line border-y border-line">
+        </Panel>
+
+        <Panel title="Top this week" icon={<ChartIcon />} action={<MoreLink href="/leaderboards?period=weekly">Full board</MoreLink>}>
+          <ol className="divide-y divide-line">
             {weekly.map((r) => (
-              <li key={r.key} className="flex items-center gap-3 py-2.5">
-                <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}.</span>
-                <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={28} />
-                <Link href={r.href} className="flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+              <li key={r.key} className="flex items-center gap-3 py-3">
+                <span className="w-6 text-right text-sm font-semibold tabular-nums text-muted">{r.rank}.</span>
+                <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={34} className="rounded-md" />
+                <Link href={r.href} className="min-w-0 flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
                   {r.name} <span className="text-xs">{flag(r.country)}</span>
                 </Link>
-                <span className="text-xs tabular-nums text-muted">{formatNumber(r.points)} pts</span>
+                <span className="text-sm tabular-nums text-muted">{formatNumber(r.points)} pts</span>
               </li>
             ))}
             {weekly.length === 0 && <li className="py-4 text-sm text-muted">Nobody has earned a trophy yet this week.</li>}
           </ol>
-        </div>
-      </section>
+        </Panel>
+      </div>
 
       {trendingSorted.length > 0 && (
-        <section>
-          <SectionTitle
-            action={
-              <Link href="/games" className="link text-xs">
-                All games
-              </Link>
-            }
-          >
-            Most played this month
-          </SectionTitle>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Panel title="Most played this month" icon={<FlameIcon />} action={<MoreLink href="/games">All games</MoreLink>}>
+          <div className="grid grid-cols-2 gap-3 py-5 sm:grid-cols-3 lg:grid-cols-6">
             {trendingSorted.map((g) => (
               <GameCard key={g.id} game={{ ...g, platRate: g.trophies[0]?.earnedRate ?? null }} />
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
-      <section className="grid gap-10 lg:grid-cols-2 [&>*]:min-w-0">
-        <div>
-          <SectionTitle
-            action={
-              <Link href="/games" className="link text-xs">
-                All games
-              </Link>
-            }
-          >
-            New trophy lists
-          </SectionTitle>
-          <ul className="divide-y divide-line border-y border-line">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="New trophy lists" icon={<StackIcon />} action={<MoreLink href="/games">All games</MoreLink>}>
+          <ul className="divide-y divide-line">
             {newLists.map((g) => {
               const platforms = listFamilies.get(g.titleKey)?.platforms ?? g.platforms.split(",");
               const loaded = Object.keys(g.counts).length > 0;
               return (
-                <li key={g.id} className="flex items-center gap-3 py-2.5">
-                  <GameArt title={g.title} hue={g.coverHue} iconUrl={g.iconUrl} size="sm" className="w-11" />
+                <li key={g.id} className="flex items-center gap-3 py-3">
+                  <GameArt title={g.title} hue={g.coverHue} iconUrl={g.iconUrl} size="sm" className="w-11 rounded-md" />
                   <div className="min-w-0 flex-1">
-                    <Link href={`/games/${g.slug}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                    <Link href={`/games/${g.slug}`} className={rowLink}>
                       {g.title}
                     </Link>
                     <div className="truncate text-xs text-muted">{platforms.join(" · ")}</div>
@@ -251,18 +258,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             })}
             {newLists.length === 0 && <li className="py-4 text-sm text-muted">No trophy lists yet.</li>}
           </ul>
-        </div>
-        <div>
-          <SectionTitle>New DLC</SectionTitle>
-          <ul className="divide-y divide-line border-y border-line">
+        </Panel>
+
+        <Panel title="New DLC" icon={<PuzzleIcon />}>
+          <ul className="divide-y divide-line">
             {dlcs.map((d) => (
-              <li key={d.id} className="flex items-center gap-3 py-2.5">
-                <GameArt title={d.game.title} hue={d.game.coverHue} iconUrl={d.game.iconUrl} size="sm" className="w-11" />
+              <li key={d.id} className="flex items-center gap-3 py-3">
+                <GameArt title={d.game.title} hue={d.game.coverHue} iconUrl={d.game.iconUrl} size="sm" className="w-11 rounded-md" />
                 <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/games/${d.game.slug}/dlc/${d.psnGroupId}`}
-                    className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
-                  >
+                  <Link href={`/games/${d.game.slug}/dlc/${d.psnGroupId}`} className={rowLink}>
                     {d.name}
                   </Link>
                   <div className="truncate text-xs text-muted">
@@ -275,34 +279,28 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             ))}
             {dlcs.length === 0 && <li className="py-4 text-sm text-muted">No DLC trophy packs yet.</li>}
           </ul>
-        </div>
-      </section>
+        </Panel>
+      </div>
 
-      <section>
-        <SectionTitle
-          action={
-            <Link href="/sessions" className="link text-xs">
-              All sessions
-            </Link>
-          }
-        >
-          Gaming sessions
-        </SectionTitle>
+      <Panel title="Gaming sessions" icon={<CalendarIcon />} action={<MoreLink href="/sessions">All sessions</MoreLink>}>
         {sessions.length === 0 ? (
-          <div className="border-y border-line py-4 text-sm text-muted">
+          <p className="py-4 text-sm text-muted">
             No upcoming sessions.{" "}
             <Link href="/sessions" className="link">
               Host one
             </Link>{" "}
             for the online trophies you still need.
-          </div>
+          </p>
         ) : (
-          <ul className="grid border-t border-line lg:grid-cols-2 lg:gap-x-10">
-            {sessions.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 border-b border-line py-2.5">
-                <GameArt title={s.game.title} hue={s.game.coverHue} iconUrl={s.game.iconUrl} size="sm" className="w-11" />
+          <ul className="grid lg:grid-cols-2 lg:gap-x-10">
+            {sessions.map((s, i) => (
+              <li
+                key={s.id}
+                className={`flex items-center gap-3 py-3 ${i > 0 ? "border-t border-line" : ""} ${i === 1 ? "lg:border-t-0" : ""}`}
+              >
+                <GameArt title={s.game.title} hue={s.game.coverHue} iconUrl={s.game.iconUrl} size="sm" className="w-11 rounded-md" />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/sessions#${s.id}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                  <Link href={`/sessions#${s.id}`} className={rowLink}>
                     {s.title}
                   </Link>
                   <div className="truncate text-xs text-muted">
@@ -317,37 +315,29 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
-      <section className="grid gap-10 lg:grid-cols-2 [&>*]:min-w-0">
-        <div>
-          <SectionTitle
-            action={
-              <Link href="/guides" className="link text-xs">
-                All guides
-              </Link>
-            }
-          >
-            Latest guides
-          </SectionTitle>
-          <ul className="divide-y divide-line border-y border-line">
-            {guides.map((g) => (
-              <li key={g.id}>
-                <Link href={`/guides/${g.slug}`} className="group flex gap-4 py-3">
-                  <GameArt title={g.game.title} hue={g.game.coverHue} iconUrl={g.game.iconUrl} size="sm" className="w-12" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold group-hover:underline group-hover:underline-offset-4">{g.title}</div>
-                    <div className="line-clamp-2 text-xs text-muted">{g.summary}</div>
-                    <div className="mt-1 text-xs text-faint">
-                      by {g.author.username} · {timeAgo(g.createdAt)}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Latest guides" icon={<BookIcon />} action={<MoreLink href="/guides">All guides</MoreLink>}>
+          {guides.length > 0 ? (
+            <ul className="divide-y divide-line">
+              {guides.map((g) => (
+                <li key={g.id}>
+                  <Link href={`/guides/${g.slug}`} className="group flex gap-4 py-3">
+                    <GameArt title={g.game.title} hue={g.game.coverHue} iconUrl={g.game.iconUrl} size="sm" className="w-12 rounded-md" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold group-hover:underline group-hover:underline-offset-4">{g.title}</div>
+                      <div className="line-clamp-2 text-xs text-muted">{g.summary}</div>
+                      <div className="mt-1 text-xs text-faint">
+                        by {g.author.username} · {timeAgo(g.createdAt)}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {guides.length === 0 && (
-            <div className="border-b border-line py-4 text-sm">
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="py-4 text-sm">
               <p className="text-muted">
                 No guides yet. Guides are written by members, so the first ones are up for grabs.
                 {needGuides.length > 0 && " These games have the most players and no guide:"}
@@ -356,11 +346,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                 <ul className="mt-3 space-y-2">
                   {needGuides.map(({ game, players }) => (
                     <li key={game.id} className="flex items-center gap-3">
-                      <GameArt title={game.title} hue={game.coverHue} iconUrl={game.iconUrl} size="sm" className="w-8" />
-                      <Link
-                        href={`/games/${game.slug}`}
-                        className="min-w-0 flex-1 truncate hover:underline hover:underline-offset-4"
-                      >
+                      <GameArt title={game.title} hue={game.coverHue} iconUrl={game.iconUrl} size="sm" className="w-8 rounded-md" />
+                      <Link href={`/games/${game.slug}`} className="min-w-0 flex-1 truncate hover:underline hover:underline-offset-4">
                         {game.title}
                       </Link>
                       <span className="text-xs text-faint">{players} players</span>
@@ -373,18 +360,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               </Link>
             </div>
           )}
-        </div>
-        <div>
-          <SectionTitle>Recent ultra rares</SectionTitle>
-          <ul className="divide-y divide-line border-y border-line">
+        </Panel>
+
+        <Panel title="Recent ultra rares" icon={<SparkIcon />}>
+          <ul className="divide-y divide-line">
             {rareUnlocks.map((u) => (
-              <li key={u.id} className="flex items-center gap-3 py-2.5">
-                <TrophyIcon type={u.trophy.type} size={22} />
+              <li key={u.id} className="flex items-center gap-3 py-3">
+                <TrophyIcon type={u.trophy.type} size={24} />
                 <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/trophies/${u.trophy.id}`}
-                    className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
-                  >
+                  <Link href={`/trophies/${u.trophy.id}`} className={rowLink}>
                     {u.trophy.name}
                   </Link>
                   <div className="truncate text-xs text-muted">
@@ -399,8 +383,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             ))}
             {rareUnlocks.length === 0 && <li className="py-4 text-sm text-muted">No ultra rare unlocks yet.</li>}
           </ul>
-        </div>
-      </section>
+        </Panel>
+      </div>
     </div>
   );
 }

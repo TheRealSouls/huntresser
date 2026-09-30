@@ -216,3 +216,20 @@ export function latestSessions(take: number) {
     },
   });
 }
+
+/**
+ * Real PSN game icons for the home page hero, most played first and one per
+ * game. Only games with a trailer on IGDB, which keeps it to proper releases
+ * rather than the trophy-farm titles top hunters play most. PS5 icons are
+ * square, so they come first; PS4 ones are cropped.
+ */
+export async function heroCovers(take: number) {
+  const games = await prisma.game.findMany({
+    where: { iconUrl: { not: null }, trailerYoutubeId: { not: null } },
+    orderBy: [{ npServiceName: "desc" }, { playerTitles: { _count: "desc" } }, { userGames: { _count: "desc" } }],
+    distinct: ["titleKey"],
+    take,
+    select: { id: true, title: true, iconUrl: true, coverHue: true },
+  });
+  return games;
+}

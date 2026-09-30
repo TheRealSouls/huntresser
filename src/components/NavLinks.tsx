@@ -24,8 +24,8 @@ export function NavLinks() {
             href={l.href}
             aria-current={active ? "page" : undefined}
             className={clsx(
-              "flex items-center border-b-2 px-3 text-sm",
-              active ? "border-accent text-text" : "border-transparent text-muted hover:text-text",
+              "flex items-center border-b-2 px-3 text-[15px] font-medium",
+              active ? "border-accent text-text" : "border-transparent text-text/75 hover:text-text",
             )}
           >
             {l.label}
