@@ -20,6 +20,8 @@ export type PsnTitle = {
   iconUrl: string | null;
   platforms: string[];
   lastUpdated: Date;
+  /** Total trophies in the list (base game and DLC), when the listing includes it. */
+  definedTrophies?: number;
 };
 
 export type PsnGroupDef = { psnGroupId: string; name: string };

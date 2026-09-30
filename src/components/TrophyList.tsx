@@ -101,7 +101,7 @@ export function TrophyList({
                             alt=""
                             loading="lazy"
                             referrerPolicy="no-referrer"
-                            className={clsx("h-11 w-11 shrink-0 border border-line bg-black object-contain", dim && "opacity-40 grayscale")}
+                            className={clsx("h-11 w-11 shrink-0 border border-line bg-surface-2 object-contain", dim && "opacity-40 grayscale")}
                           />
                         ) : (
                           placeholder

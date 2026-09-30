@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
+import { recomputeUserGame } from "../progress";
 import { cleanTitle, hashString, slugify, titleKey } from "../utils";
 import type { PsnEarnedTrophy, PsnTitle, TrophyProvider } from "./types";
 
@@ -38,6 +39,7 @@ async function createGame(title: PsnTitle, sampleAccountId: string | null) {
           titleKey: titleKey(title.title),
           platforms: title.platforms.join(","),
           iconUrl: title.iconUrl,
+          definedTrophies: title.definedTrophies ?? null,
           coverHue: hashString(title.title) % 360,
           psnSampleAccountId: sampleAccountId,
         },
@@ -63,9 +65,17 @@ export async function importTitles(titles: PsnTitle[], sampleAccountId: string |
   const ids = titles.map((t) => t.npCommunicationId);
   const existing = await prisma.game.findMany({
     where: { npCommunicationId: { in: ids } },
-    select: { slug: true, npCommunicationId: true, iconUrl: true, psnSampleAccountId: true },
+    select: { slug: true, npCommunicationId: true, iconUrl: true, psnSampleAccountId: true, definedTrophies: true },
   });
   const slugs = new Map(existing.map((g) => [g.npCommunicationId!, g.slug]));
+
+  // Remember PSN's trophy total, so a list that grows (new DLC) gets fetched again.
+  for (const g of existing) {
+    const defined = titles.find((x) => x.npCommunicationId === g.npCommunicationId)?.definedTrophies;
+    if (defined && defined !== g.definedTrophies) {
+      await prisma.game.update({ where: { slug: g.slug }, data: { definedTrophies: defined } });
+    }
+  }
 
   // Backfill details that older rows might be missing.
   const stale = existing.filter((g) => (!g.iconUrl || !g.psnSampleAccountId) && sampleAccountId);
@@ -93,6 +103,7 @@ type CatalogueGame = {
   platforms: string;
   iconUrl: string | null;
   psnSampleAccountId: string | null;
+  definedTrophies?: number | null;
 };
 
 export function gameAsTitle(g: CatalogueGame): PsnTitle | null {
@@ -108,7 +119,9 @@ export function gameAsTitle(g: CatalogueGame): PsnTitle | null {
 }
 
 /**
- * Fetches and stores the trophy groups and trophies for a game if it has none yet.
+ * Fetches and stores the trophy groups and trophies for a game if it has none
+ * yet, or fetches the list again if PSN reports more trophies than we have (a
+ * DLC pack was added; its group is marked addedLater).
  * Pass `earned` when you're fetching a player's progress on this list anyway:
  * its earn rates fill in rarity, and it saves a second call for the same data.
  */
@@ -119,7 +132,9 @@ export async function ensureGameTrophies(
 ) {
   const title = gameAsTitle(game);
   if (!title) return false;
-  if ((await prisma.trophy.count({ where: { gameId: game.id } })) > 0) return false;
+  const have = await prisma.trophy.count({ where: { gameId: game.id } });
+  const refresh = have > 0;
+  if (refresh && !(game.definedTrophies && have < game.definedTrophies)) return false;
 
   // Global earn rates only come back on per-user calls, so borrow them from
   // an account we know owns the title (or the player being synced).
@@ -135,7 +150,13 @@ export async function ensureGameTrophies(
   ]);
 
   await prisma.trophyGroup.createMany({
-    data: def.groups.map((g) => ({ gameId: game.id, psnGroupId: g.psnGroupId, name: g.name, isDlc: g.psnGroupId !== "default" })),
+    data: def.groups.map((g) => ({
+      gameId: game.id,
+      psnGroupId: g.psnGroupId,
+      name: g.name,
+      isDlc: g.psnGroupId !== "default",
+      addedLater: refresh,
+    })),
     skipDuplicates: true,
   });
   const groupIds = new Map(
@@ -162,5 +183,58 @@ export async function ensureGameTrophies(
       })),
     skipDuplicates: true,
   });
+
+  if (refresh) {
+    // Everyone's completion on this list changes when it gains trophies.
+    const players = await prisma.userGame.findMany({ where: { gameId: game.id }, select: { userId: true } });
+    for (const p of players) await recomputeUserGame(prisma, p.userId, game.id);
+  }
+  // Stop asking if PSN's total counts something the definition doesn't list.
+  if (game.definedTrophies && def.trophies.length < game.definedTrophies) {
+    await prisma.game.update({ where: { id: game.id }, data: { definedTrophies: def.trophies.length } });
+  }
   return true;
+}
+
+/**
+ * Keeps the home page's "New trophy lists" and "New DLC" current: loads the
+ * trophy lists of the newest games (highest NPWR ids) that nobody has opened
+ * yet, and fetches again lists that PSN says have grown (new DLC).
+ * Each list costs two or three PSN requests. A list PSN refuses is skipped;
+ * rate limits and sign-in problems stop the run.
+ */
+export async function keepListsFresh(provider: TrophyProvider, { newest = 5, grown = 5 } = {}) {
+  const [fresh, grownIds] = await Promise.all([
+    prisma.game.findMany({
+      where: { npCommunicationId: { startsWith: "NPWR" }, trophies: { none: {} } },
+      orderBy: { npCommunicationId: "desc" },
+      // Extra candidates, so a few lists PSN refuses don't block the rest.
+      take: newest * 2,
+    }),
+    prisma.$queryRaw<{ id: string }[]>`
+      SELECT g.id FROM "Game" g
+      WHERE g."definedTrophies" > (SELECT count(*) FROM "Trophy" t WHERE t."gameId" = g.id)
+        AND EXISTS (SELECT 1 FROM "Trophy" t WHERE t."gameId" = g.id)
+      LIMIT ${grown}`,
+  ]);
+  const grownGames = grownIds.length ? await prisma.game.findMany({ where: { id: { in: grownIds.map((r) => r.id) } } }) : [];
+  let loaded = 0;
+  let refreshed = 0;
+  let failed = 0;
+  const attempt = async (g: (typeof fresh)[number]) => {
+    try {
+      return await ensureGameTrophies(provider, g);
+    } catch (err) {
+      const kind = (err as { kind?: string }).kind;
+      if (kind === "rate_limited" || kind === "auth") throw err;
+      failed++;
+      return false;
+    }
+  };
+  for (const g of fresh) {
+    if (loaded >= newest) break;
+    if (await attempt(g)) loaded++;
+  }
+  for (const g of grownGames) if (await attempt(g)) refreshed++;
+  return { loaded, refreshed, failed };
 }

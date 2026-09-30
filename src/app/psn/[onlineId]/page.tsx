@@ -255,6 +255,7 @@ async function TitleList({ accountId, onlineId, page }: { accountId: string; onl
           trophyTitlePlatform: t.platforms.join(","),
           progress: t.progress,
           earnedTrophies: t.earned,
+          definedTrophies: t.defined,
           lastUpdatedDateTime: t.lastUpdated,
         })),
       );

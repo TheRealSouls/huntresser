@@ -27,36 +27,37 @@
   --radius-3xl: 2px;
   --radius-4xl: 2px;
 
-  /* Warm charcoal neutrals, a brick red accent. */
-  --color-bg: #141110;
-  --color-surface: #1b1716;
-  --color-surface-2: #231e1c;
-  --color-surface-3: #2e2825;
-  --color-line: #3b3330;
-  --color-text: #efe8e2;
-  --color-muted: #a89c94;
-  --color-faint: #7a6e67;
+  /* White page, warm grey neutrals, a brick red accent. Text colours are
+     dark enough for 4.5:1 on white; faint is for secondary labels only. */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f3f1;
+  --color-surface-3: #ebe6e2;
+  --color-line: #ddd5d0;
+  --color-text: #1d1816;
+  --color-muted: #62574f;
+  --color-faint: #857970;
 
   --color-accent: #b8352a;
-  --color-accent-hi: #cc4436;
-  --color-accent-text: #ea7666;
+  --color-accent-hi: #9c2b21;
+  --color-accent-text: #a83025;
 
-  --color-plat: #c5cdd8;
-  --color-gold: #d3a441;
-  --color-silver: #aab0b8;
-  --color-bronze: #bf7a4c;
+  --color-plat: #6b7889;
+  --color-gold: #946a0e;
+  --color-silver: #6f7680;
+  --color-bronze: #97532a;
 
-  --color-ultra: #d3a441;
-  --color-very: #d27c45;
-  --color-rare: #79a8a2;
-  --color-common: #a89c94;
+  --color-ultra: #946a0e;
+  --color-very: #a8521b;
+  --color-rare: #2f6f67;
+  --color-common: #62574f;
 
-  --color-good: #7fb285;
-  --color-bad: #ef7d6d;
+  --color-good: #2c7239;
+  --color-bad: #b8352a;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -142,6 +143,6 @@ body {
 }
 
 ::selection {
-  background: rgb(184 53 42 / 0.45);
+  background: rgb(184 53 42 / 0.2);
   color: var(--color-text);
 }

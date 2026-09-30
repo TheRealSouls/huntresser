@@ -9,7 +9,7 @@ import { siblingLists } from "@/lib/games";
 import { probeSiblings } from "@/lib/psn/siblings";
 import { enrichGame, igdbEnabled } from "@/lib/igdb";
 import { isDemoMode } from "@/lib/psn/sync";
-import { formatDate, parseJsonArray } from "@/lib/utils";
+import { formatDate, parseJsonArray, timeAgo } from "@/lib/utils";
 import { GameArt, SceneArt } from "@/components/art";
 import { TrophyList } from "@/components/TrophyList";
 import { TrophyIcon } from "@/components/TrophyIcon";
@@ -40,7 +40,8 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   const game = await loadGame(slug);
   const viewerId = await getSessionUserId();
 
-  const [guides, myProgress, myTrophies, platEarners, sessions] = await Promise.all([
+  const family = game.titleKey ? { game: { titleKey: game.titleKey } } : { gameId: game.id };
+  const [guides, myProgress, myTrophies, platEarners, sessions, threads] = await Promise.all([
     // Guides written on another platform's list count for this one too.
     prisma.guide.findMany({
       where: game.titleKey ? { game: { titleKey: game.titleKey } } : { gameId: game.id },
@@ -63,6 +64,8 @@ export default async function GamePage({ params, searchParams }: { params: Promi
       take: 3,
       include: { _count: { select: { members: true } } },
     }),
+    // Forum threads about this game, on any of its trophy lists.
+    prisma.forumThread.findMany({ where: family, orderBy: { lastPostAt: "desc" }, take: 5 }),
   ]);
   const estimateSource =
     guides.length > 0 ? `From ${guides.length} guide${guides.length === 1 ? "" : "s"}` : game.difficulty == null ? "Needs a guide" : undefined;
@@ -193,7 +196,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                     alt={`${game.title} screenshot`}
                     loading="lazy"
                     referrerPolicy="no-referrer"
-                    className="aspect-video w-full border border-line bg-black object-cover"
+                    className="aspect-video w-full border border-line bg-surface-2 object-cover"
                   />
                 ),
               )}
@@ -253,6 +256,24 @@ export default async function GamePage({ params, searchParams }: { params: Promi
               {guides.length === 0 && <li className="text-sm text-muted">No guide yet.</li>}
             </ul>
             <Link href={`/guides/new?game=${game.id}`} className="btn-ghost mt-4 w-full">Write a guide</Link>
+          </section>
+
+          <section className="card p-5">
+            <h2 className="mb-3 font-bold">Discussion</h2>
+            <ul className="space-y-2">
+              {threads.map((t) => (
+                <li key={t.id}>
+                  <Link href={`/forums/thread/${t.id}`} className="block px-2 py-1.5 hover:bg-surface-2">
+                    <div className="truncate text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-muted">
+                      {t.postCount - 1} replies · {timeAgo(t.lastPostAt)}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+              {threads.length === 0 && <li className="text-sm text-muted">No threads about this game yet.</li>}
+            </ul>
+            <Link href={`/forums/new?game=${game.id}`} className="btn-ghost mt-4 w-full">Start a discussion</Link>
           </section>
 
           {dlcs.length > 0 && (

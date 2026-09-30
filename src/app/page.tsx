@@ -3,14 +3,15 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { ULTRA_RARE_MAX } from "@/lib/trophies";
-import { formatNumber, timeAgo } from "@/lib/utils";
+import { formatDate, formatNumber, timeAgo } from "@/lib/utils";
 import { flag } from "@/lib/countries";
 import { GameArt } from "@/components/art";
 import { GameCard } from "@/components/GameCard";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { Avatar, Notice, RarityBadge, SectionTitle } from "@/components/ui";
 import { SITE } from "@/lib/site";
-import { gamesNeedingGuides, latestPlatinums, siteTotals, trendingGameIds } from "@/lib/activity";
+import { gamesNeedingGuides, latestPlatinums, latestSessions, newDlc, newTrophyLists, siteTotals, trendingGameIds } from "@/lib/activity";
+import { familiesFor } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const user = await getCurrentUser();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
-  const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides] = await Promise.all([
+  const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides, newLists, dlcs, sessions] = await Promise.all([
     siteTotals(),
     latestPlatinums(6),
     prisma.userTrophy.findMany({
@@ -32,18 +33,31 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     }),
     getLeaderboard({ metric: "points", period: "weekly", scope: "global", limit: 5 }),
     prisma.guide.findMany({ orderBy: { createdAt: "desc" }, take: 4, include: { game: true, author: true } }),
-    trendingGameIds(monthAgo, 6),
+    trendingGameIds(monthAgo, 24),
     gamesNeedingGuides(5),
+    newTrophyLists(8),
+    newDlc(8),
+    latestSessions(10),
   ]);
+  const listFamilies = await familiesFor(newLists.map((g) => g.titleKey));
   const { hunters, trophies: trophyCount, platinums: platCount } = totals;
 
   const trendingGames = await prisma.game.findMany({
     where: { id: { in: trending } },
     include: { trophies: { where: { type: "PLATINUM" }, select: { earnedRate: true } } },
   });
+  // One card per game: a game's regional and PS4/PS5 lists count as one.
+  const seenKeys = new Set<string>();
   const trendingSorted = trending
     .map((id) => trendingGames.find((g) => g.id === id))
-    .filter((g): g is (typeof trendingGames)[number] => !!g);
+    .filter((g): g is (typeof trendingGames)[number] => !!g)
+    .filter((g) => {
+      const key = g.titleKey || g.id;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    })
+    .slice(0, 6);
 
   return (
     <div className="space-y-14">
@@ -193,6 +207,117 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </div>
         </section>
       )}
+
+      <section className="grid gap-10 lg:grid-cols-2 [&>*]:min-w-0">
+        <div>
+          <SectionTitle
+            action={
+              <Link href="/games" className="link text-xs">
+                All games
+              </Link>
+            }
+          >
+            New trophy lists
+          </SectionTitle>
+          <ul className="divide-y divide-line border-y border-line">
+            {newLists.map((g) => {
+              const platforms = listFamilies.get(g.titleKey)?.platforms ?? g.platforms.split(",");
+              const loaded = Object.keys(g.counts).length > 0;
+              return (
+                <li key={g.id} className="flex items-center gap-3 py-2.5">
+                  <GameArt title={g.title} hue={g.coverHue} iconUrl={g.iconUrl} size="sm" className="w-11" />
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/games/${g.slug}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                      {g.title}
+                    </Link>
+                    <div className="truncate text-xs text-muted">{platforms.join(" · ")}</div>
+                  </div>
+                  {loaded ? (
+                    <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted">
+                      {(["PLATINUM", "GOLD", "SILVER", "BRONZE"] as const).map((t) =>
+                        g.counts[t] ? (
+                          <span key={t} className="inline-flex items-center gap-0.5">
+                            <TrophyIcon type={t} size={13} />
+                            {g.counts[t]}
+                          </span>
+                        ) : null,
+                      )}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-xs text-faint">List not loaded</span>
+                  )}
+                </li>
+              );
+            })}
+            {newLists.length === 0 && <li className="py-4 text-sm text-muted">No trophy lists yet.</li>}
+          </ul>
+        </div>
+        <div>
+          <SectionTitle>New DLC</SectionTitle>
+          <ul className="divide-y divide-line border-y border-line">
+            {dlcs.map((d) => (
+              <li key={d.id} className="flex items-center gap-3 py-2.5">
+                <GameArt title={d.game.title} hue={d.game.coverHue} iconUrl={d.game.iconUrl} size="sm" className="w-11" />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/games/${d.game.slug}/dlc/${d.psnGroupId}`}
+                    className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4"
+                  >
+                    {d.name}
+                  </Link>
+                  <div className="truncate text-xs text-muted">
+                    {d.game.title} · {d.game.platforms.split(",").join(" · ")}
+                  </div>
+                </div>
+                {d.addedLater && <span className="chip border-accent-text/50 text-accent-text">New</span>}
+                <span className="shrink-0 text-xs tabular-nums text-muted">{d._count.trophies} trophies</span>
+              </li>
+            ))}
+            {dlcs.length === 0 && <li className="py-4 text-sm text-muted">No DLC trophy packs yet.</li>}
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <SectionTitle
+          action={
+            <Link href="/sessions" className="link text-xs">
+              All sessions
+            </Link>
+          }
+        >
+          Gaming sessions
+        </SectionTitle>
+        {sessions.length === 0 ? (
+          <div className="border-y border-line py-4 text-sm text-muted">
+            No upcoming sessions.{" "}
+            <Link href="/sessions" className="link">
+              Host one
+            </Link>{" "}
+            for the online trophies you still need.
+          </div>
+        ) : (
+          <ul className="grid border-t border-line lg:grid-cols-2 lg:gap-x-10">
+            {sessions.map((s) => (
+              <li key={s.id} className="flex items-center gap-3 border-b border-line py-2.5">
+                <GameArt title={s.game.title} hue={s.game.coverHue} iconUrl={s.game.iconUrl} size="sm" className="w-11" />
+                <div className="min-w-0 flex-1">
+                  <Link href={`/sessions#${s.id}`} className="block truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                    {s.title}
+                  </Link>
+                  <div className="truncate text-xs text-muted">
+                    {s.game.title} · {s.platform} ·{" "}
+                    {formatDate(s.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+                <span className={`chip shrink-0 ${s._count.members >= s.slots ? "border-bad/40 text-bad" : "border-good/40 text-good"}`}>
+                  {s._count.members}/{s.slots}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="grid gap-10 lg:grid-cols-2 [&>*]:min-w-0">
         <div>

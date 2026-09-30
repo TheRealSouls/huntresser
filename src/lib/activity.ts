@@ -152,3 +152,67 @@ export async function gamesNeedingGuides(limit = 5) {
   const games = await prisma.game.findMany({ where: { id: { in: rows.map((r) => r.gameId) } } });
   return rows.map((r) => ({ game: games.find((g) => g.id === r.gameId)!, players: r._count })).filter((r) => r.game);
 }
+
+const gameCard = { id: true, slug: true, title: true, titleKey: true, platforms: true, iconUrl: true, coverHue: true } as const;
+
+/**
+ * The newest trophy lists we know of. PSN hands out list ids (NPWR12345_00)
+ * in order, so the highest ids are the lists most recently created, often
+ * before the game is out. One entry per game; `counts` is empty until the
+ * list itself has been loaded.
+ */
+export async function newTrophyLists(take: number) {
+  let games = await prisma.game.findMany({
+    where: { npCommunicationId: { startsWith: "NPWR" } },
+    orderBy: { npCommunicationId: "desc" },
+    distinct: ["titleKey"],
+    take,
+    select: gameCard,
+  });
+  // The demo catalogue has no PSN ids: newest rows instead.
+  if (!games.length) games = await prisma.game.findMany({ orderBy: { createdAt: "desc" }, distinct: ["titleKey"], take, select: gameCard });
+
+  const rows = await prisma.trophy.groupBy({ by: ["gameId", "type"], where: { gameId: { in: games.map((g) => g.id) } }, _count: { _all: true } });
+  return games.map((g) => {
+    const counts: Record<string, number> = {};
+    for (const r of rows) if (r.gameId === g.id) counts[r.type] = r._count._all;
+    return { ...g, counts };
+  });
+}
+
+/**
+ * Newest DLC trophy packs: first those found when a list we already had grew
+ * (DLC released after we saw the game), then DLC of the newest games.
+ * A pack shared by a game's PS4 and PS5 lists shows once.
+ */
+export async function newDlc(take: number) {
+  const groups = await prisma.trophyGroup.findMany({
+    where: { isDlc: true },
+    orderBy: [{ addedLater: "desc" }, { createdAt: "desc" }, { game: { npCommunicationId: "desc" } }],
+    take: take * 3,
+    include: { game: { select: gameCard }, _count: { select: { trophies: true } } },
+  });
+  const seen = new Set<string>();
+  return groups
+    .filter((g) => {
+      const key = `${g.game.titleKey || g.game.id}:${g.name.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, take);
+}
+
+/** The most recently created sessions that haven't started yet. */
+export function latestSessions(take: number) {
+  return prisma.session.findMany({
+    where: { startsAt: { gte: new Date() } },
+    orderBy: { createdAt: "desc" },
+    take,
+    include: {
+      game: { select: gameCard },
+      host: { select: { username: true, psn: { select: { onlineId: true } } } },
+      _count: { select: { members: true } },
+    },
+  });
+}

@@ -7,7 +7,8 @@ import clsx from "clsx";
 const LINKS = [
   { href: "/games", label: "Games" },
   { href: "/guides", label: "Guides" },
-  { href: "/leaderboards", label: "Leaderboards" },
+  { href: "/forums", label: "Forums" },
+  { href: "/leaderboards", label: "Leaderboards", short: "Boards" },
   { href: "/sessions", label: "Sessions" },
 ];
 
@@ -39,7 +40,7 @@ export function MobileNav() {
   const path = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-bg lg:hidden" aria-label="Mobile">
-      {[{ href: "/", label: "Home" }, ...LINKS].map((l) => {
+      {[{ href: "/", label: "Home", short: undefined }, ...LINKS].map((l) => {
         const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
         return (
           <Link
@@ -51,7 +52,7 @@ export function MobileNav() {
               active ? "border-accent text-text" : "border-transparent text-muted",
             )}
           >
-            {l.label}
+            {l.short ?? l.label}
           </Link>
         );
       })}

@@ -133,6 +133,10 @@ export async function psnAuth(): Promise<{ accessToken: string }> {
 
 const PAGE = 800;
 
+/** Bronze + silver + gold + platinum. */
+export const sumCounts = (c?: { bronze?: number; silver?: number; gold?: number; platinum?: number }) =>
+  c ? (c.bronze ?? 0) + (c.silver ?? 0) + (c.gold ?? 0) + (c.platinum ?? 0) : undefined;
+
 export class RealPsnProvider implements TrophyProvider {
   readonly name = "psn" as const;
 
@@ -178,6 +182,7 @@ export class RealPsnProvider implements TrophyProvider {
           iconUrl: t.trophyTitleIconUrl ?? null,
           platforms: String(t.trophyTitlePlatform).split(","),
           lastUpdated: new Date(t.lastUpdatedDateTime),
+          definedTrophies: sumCounts(t.definedTrophies),
         })),
       };
     };

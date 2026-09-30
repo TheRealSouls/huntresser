@@ -29,6 +29,8 @@ export async function GET() {
       hostedSessions: { select: { title: true, description: true, platform: true, startsAt: true } },
       sessionSlots: { select: { joinedAt: true, session: { select: { title: true } } } },
       syncJobs: { select: { status: true, gamesSynced: true, trophiesSynced: true, startedAt: true, finishedAt: true } },
+      forumThreads: { select: { title: true, createdAt: true, section: { select: { name: true } } } },
+      forumPosts: { select: { body: true, createdAt: true, editedAt: true, thread: { select: { title: true } } } },
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -27,7 +27,7 @@ export function GameArt({
         alt=""
         loading="lazy"
         referrerPolicy="no-referrer"
-        className={clsx("aspect-square shrink-0 rounded-sm border border-line bg-black object-contain", className)}
+        className={clsx("aspect-square shrink-0 rounded-sm border border-line bg-surface-2 object-contain", className)}
       />
     );
   }

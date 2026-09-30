@@ -10,7 +10,7 @@ import { prisma } from "../db";
 import { pointsFor } from "../trophies";
 import { importTitles } from "./catalogue";
 import { countryFromNpId } from "./npid";
-import { psnAuth, toPsnError, withTimeout } from "./real";
+import { psnAuth, sumCounts, toPsnError, withTimeout } from "./real";
 import type { PsnTitle } from "./types";
 
 export { countryFromNpId };
@@ -139,6 +139,7 @@ type RawTitle = {
   trophyTitlePlatform: string;
   progress?: number;
   earnedTrophies?: { platinum: number };
+  definedTrophies?: { bronze: number; silver: number; gold: number; platinum: number };
   lastUpdatedDateTime: string;
 };
 
@@ -151,6 +152,7 @@ export async function storePlayerTitles(accountId: string, raw: RawTitle[]) {
     iconUrl: t.trophyTitleIconUrl ?? null,
     platforms: String(t.trophyTitlePlatform).split(","),
     lastUpdated: new Date(t.lastUpdatedDateTime),
+    definedTrophies: sumCounts(t.definedTrophies),
   }));
   await importTitles(titles, accountId);
   const games = new Map(

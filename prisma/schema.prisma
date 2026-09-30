@@ -26,6 +26,8 @@ model User {
   showActivity       Boolean  @default(true)
   // FREE | PREMIUM: how often trophies sync (see src/lib/plans.ts).
   plan               String   @default("FREE")
+  // USER | ADMIN. Admins manage forum sections and moderate threads (npm run user:role).
+  role               String   @default("USER")
   createdAt          DateTime @default(now())
 
   psn              PsnAccount?
@@ -40,6 +42,8 @@ model User {
   titleSyncs       PsnTitleSync[]
   hostedSessions   Session[]
   sessionSlots     SessionMember[]
+  forumThreads     ForumThread[]
+  forumPosts       ForumPost[]
 }
 
 model PsnAccount {
@@ -207,6 +211,9 @@ model Game {
   screenshots        String    @default("[]") // JSON array of image URLs / art seeds
   createdAt          DateTime  @default(now())
 
+  // Trophies in the list according to PSN's game listings. When it grows past
+  // what's stored (a DLC pack was added), the list is fetched again.
+  definedTrophies    Int?
   // When we last looked for sibling trophy lists (other regions/platforms) next to this one.
   siblingsProbedAt DateTime?
   // IGDB match for release date, description, genre, screenshots and trailer.
@@ -220,6 +227,7 @@ model Game {
   playerTitles PsnPlayerTitle[]
   guides       Guide[]
   sessions     Session[]
+  forumThreads ForumThread[]
 
   @@index([title])
   @@index([titleKey])
@@ -232,11 +240,15 @@ model TrophyGroup {
   name        String
   isDlc       Boolean   @default(false)
   releaseDate DateTime?
+  createdAt   DateTime  @default(now())
+  // Found when an already-loaded list was fetched again, so it's DLC released after we first saw the game.
+  addedLater  Boolean   @default(false)
 
   game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   trophies Trophy[]
 
   @@unique([gameId, psnGroupId])
+  @@index([isDlc, addedLater, createdAt])
 }
 
 model Trophy {
@@ -416,4 +428,66 @@ model PsnAuthState {
   expiresAt        DateTime
   refreshExpiresAt DateTime
   updatedAt        DateTime @updatedAt
+}
+
+// ─── Forums ─────────────────────────────────────────────────────────────────
+// Sections are created by admins at /forums/manage. A section can hold
+// sub-sections (one level) and threads. Posts keep their text when an
+// account is deleted; the author shows as a deleted user.
+
+model ForumSection {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String   @default("")
+  order       Int      @default(0)
+  parentId    String?
+  // Only admins can start threads here (announcements, rules).
+  adminOnly   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  parent   ForumSection?  @relation("SubSections", fields: [parentId], references: [id], onDelete: Cascade)
+  children ForumSection[] @relation("SubSections")
+  threads  ForumThread[]
+
+  @@index([parentId, order])
+}
+
+model ForumThread {
+  id         String   @id @default(cuid())
+  sectionId  String
+  authorId   String?
+  // Optional game the thread is about; it's listed on that game's page.
+  gameId     String?
+  title      String
+  pinned     Boolean  @default(false)
+  locked     Boolean  @default(false)
+  // Denormalised so section pages don't count posts per thread.
+  postCount  Int      @default(1)
+  views      Int      @default(0)
+  createdAt  DateTime @default(now())
+  lastPostAt DateTime @default(now())
+
+  section ForumSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  author  User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  game    Game?        @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  posts   ForumPost[]
+
+  @@index([sectionId, pinned, lastPostAt])
+  @@index([gameId, lastPostAt])
+}
+
+model ForumPost {
+  id        String    @id @default(cuid())
+  threadId  String
+  authorId  String?
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
 }

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: { siteName: SITE.name, type: "website" },
 };
 
-export const viewport: Viewport = { themeColor: "#141110", colorScheme: "dark" };
+export const viewport: Viewport = { themeColor: "#ffffff", colorScheme: "light" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const year = new Date().getFullYear();
@@ -51,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3">
               <Link href="/games" className="hover:text-text">Games</Link>
               <Link href="/guides" className="hover:text-text">Guides</Link>
+              <Link href="/forums" className="hover:text-text">Forums</Link>
               <Link href="/leaderboards" className="hover:text-text">Leaderboards</Link>
               <Link href="/sessions" className="hover:text-text">Sessions</Link>
               <Link href="/terms" className="hover:text-text">Terms of service</Link>

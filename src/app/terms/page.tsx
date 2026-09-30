@@ -53,7 +53,8 @@ export default function TermsPage() {
           You keep ownership of the guides, tips and other content you post. By posting, you give us a worldwide, non-exclusive,
           royalty-free licence to host, display, adapt for formatting and distribute that content on the site. This licence ends
           when you delete the content or your account, except where others have already relied on it (for example a quoted tip) or
-          where we have to keep it for legal reasons.
+          where we have to keep it for legal reasons. Forum posts are the exception: they stay up after you delete your account,
+          shown as posted by a deleted user, unless you delete them first or ask us to.
         </p>
         <p>You agree not to post anything that:</p>
         <ul>

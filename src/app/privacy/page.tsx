@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         </ul>
         <h3>When you use the site</h3>
         <ul>
-          <li>Guides, tips, votes, friend requests and sessions you create or join.</li>
+          <li>Guides, tips, forum threads and posts, votes, friend requests and sessions you create or join.</li>
           <li>
             Anything you send through the <Link href="/contact">contact form</Link>: your email, the message, and your name, username
             or PSN Online ID if you include them.
@@ -78,8 +78,8 @@ export default function PrivacyPage() {
 
         <h2>Who can see it</h2>
         <p>
-          Your profile visibility setting decides who sees your trophy data: everyone, friends only, or just you. Guides and tips you
-          post are public. Your email address is never shown to other users.
+          Your profile visibility setting decides who sees your trophy data: everyone, friends only, or just you. Guides, tips and forum
+          posts are public. Your email address is never shown to other users.
         </p>
         <p>
           We use a small number of service providers to run the site, such as our hosting and database provider, and Formspree,
@@ -94,6 +94,10 @@ export default function PrivacyPage() {
           <li>Account data: until you delete your account.</li>
           <li>Synced trophy data: until you unlink PSN or delete your account.</li>
           <li>Sync logs: kept with your account and removed when it is deleted.</li>
+          <li>
+            Forum posts: they stay up after you delete your account, shown as posted by a deleted user, so the conversations
+            around them still make sense. Delete any posts you want gone first, or ask us to remove them.
+          </li>
           <li>Backups: overwritten within 30 days of deletion.</li>
         </ul>
 

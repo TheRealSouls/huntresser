@@ -23,7 +23,9 @@
     "db:from-sqlite": "tsx scripts/sqlite-to-postgres.ts",
     "db:backfill-titles": "tsx scripts/backfill-titles.ts",
     "db:estimates": "tsx scripts/refresh-estimates.ts",
-    "igdb:import": "tsx scripts/igdb-import.ts"
+    "igdb:import": "tsx scripts/igdb-import.ts",
+    "user:role": "tsx scripts/user-role.ts",
+    "psn:lists": "tsx scripts/psn-lists.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

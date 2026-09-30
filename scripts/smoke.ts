@@ -41,6 +41,10 @@ async function main() {
     prisma.psnPlayer.findFirst({ where: { hidden: false, trophiesPrivate: false }, orderBy: { points: "desc" }, select: { onlineId: true } }),
     prisma.session.findFirst({ select: { id: true } }),
   ]);
+  const [section, thread] = await Promise.all([
+    prisma.forumSection.findFirst({ select: { slug: true } }),
+    prisma.forumThread.findFirst({ select: { id: true } }),
+  ]);
 
   const checks: Check[] = [
     { path: "/" },
@@ -59,6 +63,7 @@ async function main() {
     { path: "/search?q=call&type=games" },
     { path: "/search?q=GamingWithFlacy&type=players" },
     { path: "/sessions" },
+    { path: "/forums", contains: "Forums" },
     { path: "/compare" },
     { path: "/terms" },
     { path: "/privacy" },
@@ -77,6 +82,8 @@ async function main() {
     { path: "/friends", auth: true },
     { path: "/guides/new", auth: true, contains: "Write a trophy guide" },
     { path: "/sessions", auth: true, contains: "Host a session" },
+    { path: "/forums/new", auth: true },
+    { path: "/forums/manage", auth: true },
     { path: `/u/${demo.username}`, auth: true },
     { path: "/api/account/export", auth: true, contains: DEMO_EMAIL },
     // Visitors are sent to log in. Streamed pages redirect in the page itself, so accept either form.
@@ -98,6 +105,8 @@ async function main() {
   }
   if (player) checks.push({ path: `/psn/${encodeURIComponent(player.onlineId)}` }, { path: `/psn/${encodeURIComponent(player.onlineId)}?page=2` });
   if (session_) checks.push({ path: `/sessions#${session_.id}` });
+  if (section) checks.push({ path: `/forums/${section.slug}` });
+  if (thread) checks.push({ path: `/forums/thread/${thread.id}` });
 
   let failed = 0;
   for (const c of checks) {

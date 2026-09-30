@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { discoverPlayers, refreshPlayer } from "@/lib/psn/players";
 import { toPsnError } from "@/lib/psn/real";
-import { isDemoMode } from "@/lib/psn/sync";
+import { getProvider, isDemoMode } from "@/lib/psn/sync";
+import { keepListsFresh } from "@/lib/psn/catalogue";
 
 /**
  * Keeps tracked PSN players fresh: re-reads the stalest few (level, totals,
@@ -12,7 +13,8 @@ import { isDemoMode } from "@/lib/psn/sync";
  *
  * Call with `Authorization: Bearer $CRON_SECRET`, e.g. every 10 minutes.
  * Each run costs roughly 3 PSN requests per refreshed player and 2 per
- * discovered one.
+ * discovered one. It also loads the trophy lists of the newest games and
+ * lists that gained DLC (PSN_NEW_LISTS_PER_RUN, PSN_GROWN_LISTS_PER_RUN).
  */
 export const maxDuration = 300;
 
@@ -51,5 +53,11 @@ export async function GET(req: Request) {
       ? await discoverPlayers({ maxNew: DISCOVER_PER_RUN }).catch((err) => ({ error: toPsnError(err).message }))
       : "off";
 
-  return NextResponse.json({ refreshed, discovery });
+  // New games and new DLC for the home page.
+  const lists = await keepListsFresh(getProvider(), {
+    newest: Math.max(0, Number(process.env.PSN_NEW_LISTS_PER_RUN) || 5),
+    grown: Math.max(0, Number(process.env.PSN_GROWN_LISTS_PER_RUN) || 5),
+  }).catch((err) => ({ error: toPsnError(err).message }));
+
+  return NextResponse.json({ refreshed, discovery, lists });
 }

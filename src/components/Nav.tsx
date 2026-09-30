@@ -13,9 +13,10 @@ export async function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-5 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5" aria-label={`${SITE.name} home`}>
-          <Logo />
-          <span className="text-base font-bold tracking-tight">{SITE.name}</span>
+        {/* The red tile and the name sit together inside one red frame. */}
+        <Link href="/" className="flex shrink-0 items-stretch border-2 border-accent" aria-label={`${SITE.name} home`}>
+          <Logo size={28} />
+          <span className="flex items-center px-2 text-base font-bold leading-none tracking-tight">{SITE.name}</span>
         </Link>
 
         <NavLinks />

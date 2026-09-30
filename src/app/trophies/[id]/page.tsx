@@ -71,7 +71,7 @@ export default async function TrophyPage({ params }: { params: Promise<Params> }
               src={secureUrl(t.iconUrl)}
               alt={`${t.name} trophy icon`}
               referrerPolicy="no-referrer"
-              className="h-24 w-24 shrink-0 border border-line bg-black object-contain"
+              className="h-24 w-24 shrink-0 border border-line bg-surface-2 object-contain"
             />
           ) : (
             <div className="border border-line bg-surface-3 p-4">

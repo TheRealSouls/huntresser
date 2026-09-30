@@ -150,6 +150,22 @@ leaderboards.
 games (`PsnPlayerTitle`) and snapshots. Platinum dates are exact: they're read from the trophy list, a few per refresh.
 "Popular guides" only has what members write; while it's empty it lists the most-played games that still need a guide.
 
+## Forums
+
+`/forums` has sections, each with optional sub-sections, holding threads and replies. A thread can be tagged with a game,
+and the game's page lists its threads under Discussion. Admins create, edit, reorder and delete sections at
+`/forums/manage`, and can pin, lock, move and delete threads and posts. Members can edit and delete their own posts.
+Make someone an admin with `npm run user:role -- <username> ADMIN` (`USER` to undo). Never make the shared demo account
+an admin: its password is public. Posts stay up, credited to a deleted user, when an account is deleted.
+
+## New trophy lists and new DLC
+
+The home page's "New trophy lists" are the games with the highest PSN list ids (`NPWR12345_00`): Sony hands them out in
+order, so they're the most recently created lists. "New DLC" first shows DLC packs found when a list we already had grew
+(PSN's game listings report each list's trophy total; when it rises, the list is fetched again and the new pack is marked
+`addedLater`), then DLC of the newest games. The players cron loads a few of these lists per run
+(`PSN_NEW_LISTS_PER_RUN`, `PSN_GROWN_LISTS_PER_RUN`); `npm run psn:lists -- 40` loads a batch by hand.
+
 ## Difficulty and time to platinum
 
 These come from guides. When someone posts a guide, the game's difficulty becomes the average of its guides' ratings and
@@ -216,6 +232,7 @@ list count, and every game page has a switcher between its lists. After changing
 | Leaderboards (global, country, friends; all time, weekly, monthly) | `/leaderboards`, `src/lib/leaderboard.ts` |
 | Search (games, PSN players, members, trophies, guides, sessions) | `/search` |
 | Co-op and boosting sessions | `/sessions` |
+| Forums with sections, sub-sections and game threads | `/forums`, `/forums/manage` (admins) |
 | Terms and privacy policy | `/terms`, `/privacy` (operator details come from `SITE_*` env vars) |
 | Contact form (Formspree) | `/contact`, `?topic=removal` or `?topic=privacy` preselects a topic |
 
