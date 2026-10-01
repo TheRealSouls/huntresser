@@ -37,6 +37,13 @@ const privacySchema = z.object({
   profileVisibility: z.enum(["PUBLIC", "FRIENDS", "PRIVATE"]),
 });
 
+export async function updateTheme(fd: FormData) {
+  const user = await requireUser("/settings");
+  const theme = fd.get("theme") === "dark" ? "dark" : "light";
+  await prisma.user.update({ where: { id: user.id }, data: { theme } });
+  revalidatePath("/", "layout");
+}
+
 export async function updatePrivacy(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   const parsed = privacySchema.safeParse({ profileVisibility: fd.get("profileVisibility") });

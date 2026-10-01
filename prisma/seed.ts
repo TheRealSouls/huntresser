@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
 import { syncUser } from "../src/lib/psn/sync";
+import { trophySlugs } from "../src/lib/trophy-slug";
 import { hashString, mulberry32, slugify, titleKey } from "../src/lib/utils";
 import { ARCHETYPE_EXTRAS, GAMES, USERS, type GameSpec, type TrophySpec } from "./seed-data";
 
@@ -135,11 +136,13 @@ async function seedGames() {
       });
       groups.set(g.psnGroupId, g.id);
     }
+    const slugs = trophySlugs(trophies.map((t) => ({ psnTrophyId: t.psnTrophyId, name: t.name, hidden: !!t.hidden })));
     await prisma.trophy.createMany({
       data: trophies.map((t) => ({
         gameId: game.id,
         groupId: groups.get(t.group)!,
         psnTrophyId: t.psnTrophyId,
+        slug: slugs.get(t.psnTrophyId)!,
         name: t.name,
         description: t.description,
         type: t.type,

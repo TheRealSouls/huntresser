@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
+import { trophyHref } from "@/lib/trophy-slug";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth";
 import { rarityOf } from "@/lib/trophies";
@@ -12,22 +14,27 @@ import { RevealButton, Spoiler, SpoilerSwap } from "@/components/client";
 import { Tips } from "@/components/Tips";
 import { Avatar, RarityBadge, Stat, StatGrid } from "@/components/ui";
 
-type Params = { id: string };
+type Params = { slug: string; trophy: string };
 
-async function load(id: string) {
-  const t = await prisma.trophy.findUnique({ where: { id }, include: { game: true, group: true } });
+/** /games/<game slug>/<trophy slug>, e.g. /games/hollow-knight/watcher. */
+const load = cache(async (gameSlug: string, trophySlug: string) => {
+  const t = await prisma.trophy.findFirst({
+    where: { slug: decodeURIComponent(trophySlug), game: { slug: gameSlug } },
+    include: { game: true, group: true },
+  });
   if (!t) notFound();
   return t;
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const t = await load((await params).id);
+  const p = await params;
+  const t = await load(p.slug, p.trophy);
   return { title: t.hidden ? `Hidden trophy · ${t.game.title}` : `${t.name} · ${t.game.title}` };
 }
 
 export default async function TrophyPage({ params }: { params: Promise<Params> }) {
-  const { id } = await params;
-  const t = await load(id);
+  const p = await params;
+  const t = await load(p.slug, p.trophy);
   const viewerId = await getSessionUserId();
 
   const [mine, earnerCount, owners, recent, steps] = await Promise.all([
@@ -124,7 +131,7 @@ export default async function TrophyPage({ params }: { params: Promise<Params> }
               </ul>
             </section>
           )}
-          <Tips trophyId={t.id} path={`/trophies/${t.id}`} />
+          <Tips trophyId={t.id} path={trophyHref(t.game.slug, t.slug!)} />
         </div>
         <aside className="card h-fit p-5">
           <h2 className="mb-3 font-bold">Recently earned by</h2>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import clsx from "clsx";
 import { prisma } from "@/lib/db";
+import { trophyHref } from "@/lib/trophy-slug";
 import { getMilestones, getUserStats } from "@/lib/stats";
 import { getFriendIds } from "@/lib/social";
 import { flag } from "@/lib/countries";
@@ -265,7 +266,7 @@ async function Milestones({ userId, stats }: { userId: string; stats: Awaited<Re
               <li key={ut.id} className="flex items-center gap-3 px-4 py-3">
                 <TrophyIcon type={ut.trophy.type} size={22} />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/trophies/${ut.trophy.id}`} className="block truncate font-semibold hover:text-accent-text">{ut.trophy.name}</Link>
+                  <Link href={ut.trophy.slug ? trophyHref(ut.trophy.game.slug, ut.trophy.slug) : `/trophies/${ut.trophy.id}`} className="block truncate font-semibold hover:text-accent-text">{ut.trophy.name}</Link>
                   <div className="truncate text-xs text-muted">{ut.trophy.game.title}</div>
                 </div>
                 <RarityBadge rate={ut.trophy.earnedRate} />

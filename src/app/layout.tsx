@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
+import { getCurrentUser } from "@/lib/auth";
 import { MobileNav } from "@/components/NavLinks";
 import { isDemoMode } from "@/lib/psn/sync";
 import { SITE } from "@/lib/site";
@@ -24,10 +25,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#ffffff", colorScheme: "light" };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const year = new Date().getFullYear();
+  // Light for everyone unless a signed-in member picked dark in Settings. Never follows the device.
+  const theme = (await getCurrentUser())?.theme === "dark" ? "dark" : "light";
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} data-theme={theme}>
       <body className="min-h-screen overflow-x-clip font-sans text-[15px] antialiased">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 btn-primary">
           Skip to content

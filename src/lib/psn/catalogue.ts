@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { recomputeUserGame } from "../progress";
+import { trophySlugs } from "../trophy-slug";
 import { cleanTitle, hashString, slugify, titleKey } from "../utils";
 import type { PsnEarnedTrophy, PsnTitle, TrophyProvider } from "./types";
 
@@ -166,14 +167,20 @@ export async function ensureGameTrophies(
     ]),
   );
 
+  // Readable addresses for the trophies we don't have yet, without taking any existing one.
+  const existing = await prisma.trophy.findMany({ where: { gameId: game.id }, select: { psnTrophyId: true, slug: true } });
+  const stored = new Set(existing.map((t) => t.psnTrophyId));
+  const fresh = def.trophies.filter((t) => groupIds.has(t.psnGroupId) && !stored.has(t.psnTrophyId));
+  const slugs = trophySlugs(fresh, existing.flatMap((t) => (t.slug ? [t.slug] : [])));
+
   // One insert for the whole list; a concurrent import of the same game just skips.
   await prisma.trophy.createMany({
-    data: def.trophies
-      .filter((t) => groupIds.has(t.psnGroupId))
+    data: fresh
       .map((t) => ({
         gameId: game.id,
         groupId: groupIds.get(t.psnGroupId)!,
         psnTrophyId: t.psnTrophyId,
+        slug: slugs.get(t.psnTrophyId)!,
         name: t.name,
         description: t.description,
         type: t.type,

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import clsx from "clsx";
 import { prisma } from "@/lib/db";
+import { trophyHref } from "@/lib/trophy-slug";
 import { flag } from "@/lib/countries";
 import { familiesFor } from "@/lib/games";
 import { searchPsnPlayers } from "@/lib/psn/lookup";
@@ -211,7 +212,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <ul className="divide-y divide-line border-y border-line">
               {trophies.map((t) => (
                 <li key={t.id}>
-                  <Link href={`/trophies/${t.id}`} className="group flex items-center gap-3 py-2.5">
+                  <Link href={t.slug ? trophyHref(t.game.slug, t.slug) : `/trophies/${t.id}`} className="group flex items-center gap-3 py-2.5">
                     <TrophyIcon type={t.type} size={22} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold group-hover:underline group-hover:underline-offset-4">

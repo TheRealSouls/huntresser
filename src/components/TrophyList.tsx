@@ -5,10 +5,12 @@ import { RevealButton, Spoiler, SpoilerSwap } from "./client";
 import { ProgressBar, RarityBadge } from "./ui";
 import { TROPHY_ORDER, TROPHY_POINTS, type TrophyType } from "@/lib/trophies";
 import { formatDate, secureUrl } from "@/lib/utils";
+import { trophyHref } from "@/lib/trophy-slug";
 
 type T = {
   id: string;
   psnTrophyId: number;
+  slug: string | null;
   name: string;
   description: string;
   type: string;
@@ -24,12 +26,15 @@ type T = {
 type G = { id: string; name: string; isDlc: boolean; releaseDate: Date | null };
 
 export function TrophyList({
+  gameSlug,
   groups,
   trophies,
   earned,
   ownerLabel,
   sort = "default",
 }: {
+  /** The list's game, for trophy addresses (/games/<game>/<trophy>). */
+  gameSlug: string;
   groups: G[];
   trophies: T[];
   /** trophyId → earned date; omit when there's no progress to show. */
@@ -109,7 +114,7 @@ export function TrophyList({
                       </SpoilerSwap>
                       <div className="min-w-0 flex-1">
                         <SpoilerSwap concealed={<RevealButton />} focusOnReveal>
-                          <Link href={`/trophies/${t.id}`} className="group block">
+                          <Link href={t.slug ? trophyHref(gameSlug, t.slug) : `/trophies/${t.id}`} className="group block">
                             <div className="flex items-center gap-1.5 font-semibold group-hover:underline group-hover:underline-offset-4">
                               {t.iconUrl && <TrophyIcon type={t.type} size={14} />}
                               {t.name}
@@ -126,7 +131,7 @@ export function TrophyList({
                             </SpoilerSwap>
                           )}
                           {!!t._count?.tips && (
-                            <Link href={`/trophies/${t.id}#tips`} className="chip hover:text-text">
+                            <Link href={`${t.slug ? trophyHref(gameSlug, t.slug) : `/trophies/${t.id}`}#tips`} className="chip hover:text-text">
                               {t._count.tips} tip{t._count.tips === 1 ? "" : "s"}
                             </Link>
                           )}

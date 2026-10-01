@@ -35,7 +35,7 @@ async function main() {
   const [game, dlc, trophy, guide, member, player, session_] = await Promise.all([
     prisma.game.findFirst({ where: { trophies: { some: {} } }, select: { slug: true } }),
     prisma.trophyGroup.findFirst({ where: { isDlc: true }, select: { psnGroupId: true, game: { select: { slug: true } } } }),
-    prisma.trophy.findFirst({ select: { id: true } }),
+    prisma.trophy.findFirst({ where: { slug: { not: null } }, select: { id: true, slug: true, game: { select: { slug: true } } } }),
     prisma.guide.findFirst({ select: { slug: true } }),
     prisma.userGame.findFirst({ where: { user: { profileVisibility: "PUBLIC" } }, select: { user: { select: { username: true } }, game: { select: { slug: true } } } }),
     prisma.psnPlayer.findFirst({ where: { hidden: false, trophiesPrivate: false }, orderBy: { points: "desc" }, select: { onlineId: true } }),
@@ -93,7 +93,7 @@ async function main() {
   ];
   if (game) checks.push({ path: `/games/${game.slug}` }, { path: `/games/${game.slug}?sort=rarity` });
   if (dlc) checks.push({ path: `/games/${dlc.game.slug}/dlc/${dlc.psnGroupId}` });
-  if (trophy) checks.push({ path: `/trophies/${trophy.id}` });
+  if (trophy) checks.push({ path: `/games/${trophy.game.slug}/${trophy.slug}` }, { path: `/trophies/${trophy.id}`, status: 308 });
   if (guide) checks.push({ path: `/guides/${guide.slug}` });
   if (member) {
     checks.push(

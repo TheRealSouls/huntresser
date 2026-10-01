@@ -9,9 +9,9 @@ import { SITE } from "@/lib/site";
 import { isDemoAccount } from "@/lib/demo";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { unlinkPsn } from "@/actions/account";
-import { Avatar, Notice, PageHeader } from "@/components/ui";
+import { Avatar, Notice, PageHeader, ProgressBar } from "@/components/ui";
 import { ConfirmButton } from "@/components/client";
-import { DeleteAccountForm, LinkPsnForm, PrivacyForm, ProfileForm, SyncButton, VerifyPsnButton } from "./forms";
+import { DeleteAccountForm, LinkPsnForm, PrivacyForm, ProfileForm, SyncButton, ThemeForm, VerifyPsnButton } from "./forms";
 
 export const metadata: Metadata = { title: "Settings", robots: { index: false } };
 
@@ -19,9 +19,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const user = await requireUser("/settings");
   const { welcome, linked } = await searchParams;
   const psn = user.psn;
-  const [jobs, nextManual] = await Promise.all([
+  const [jobs, nextManual, imported] = await Promise.all([
     prisma.syncJob.findMany({ where: { userId: user.id }, orderBy: { startedAt: "desc" }, take: 5 }),
     psn?.verified ? nextManualSyncAt(user.id, user.plan) : null,
+    psn?.verified ? prisma.psnTitleSync.count({ where: { userId: user.id } }) : 0,
   ]);
   const demo = isDemoMode();
   const plan = planOf(user);
@@ -133,6 +134,20 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 {nextAuto && (nextAuto.getTime() > Date.now() ? ` (next in about ${durationText(nextAuto.getTime() - Date.now())})` : " (due now)")}
                 , and you can press Sync now {everyText(plan.manualEveryMs)}.
               </p>
+              {busy && jobs[0] && jobs[0].remaining > 0 && (
+                <div className="rounded-lg border border-line p-4" aria-live="polite">
+                  <div className="mb-2 flex justify-between text-sm">
+                    <span className="font-semibold">Importing your library</span>
+                    <span className="tabular-nums text-muted">
+                      {imported.toLocaleString("en-GB")} of {(imported + jobs[0].remaining).toLocaleString("en-GB")} games
+                    </span>
+                  </div>
+                  <ProgressBar value={(imported / (imported + jobs[0].remaining)) * 100} label="Library import" />
+                  <p className="mt-2 text-xs text-muted">
+                    Your most recently played games come first, so your profile fills in while the rest import. You can leave this page.
+                  </p>
+                </div>
+              )}
               <SyncButton nextAt={nextManual?.toISOString() ?? null} busy={busy} />
               {jobs.length > 0 && (
                 <div>
@@ -169,6 +184,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </form>
             </div>
           )}
+        </Section>
+
+        <Section title="Appearance">
+          <ThemeForm theme={user.theme} />
         </Section>
 
         <Section title="Profile">

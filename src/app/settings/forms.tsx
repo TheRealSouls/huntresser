@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { durationText } from "@/lib/plans";
-import { deleteAccount, startPsnLink, syncNow, updatePrivacy, updateProfile, verifyPsn } from "@/actions/account";
+import { deleteAccount, startPsnLink, syncNow, updatePrivacy, updateProfile, updateTheme, verifyPsn } from "@/actions/account";
 import { SubmitButton } from "@/components/client";
 import { FormMessage } from "@/components/ui";
 import { COUNTRIES } from "@/lib/countries";
@@ -135,6 +135,44 @@ export function SyncButton({ nextAt, busy }: { nextAt: string | null; busy: bool
         )}
       </div>
       <FormMessage state={state} />
+    </form>
+  );
+}
+
+/** Light or dark. Picking one applies it straight away; the button covers browsers without JavaScript. */
+export function ThemeForm({ theme }: { theme: string }) {
+  return (
+    <form action={updateTheme}>
+      <fieldset>
+        <legend className="label">Theme</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            ["light", "Light", "White background. The default."],
+            ["dark", "Dark", "Dark background, easier on the eyes at night."],
+          ].map(([value, label, hint]) => (
+            <label
+              key={value}
+              className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4 has-[:checked]:border-accent-text has-[:checked]:bg-surface-2"
+            >
+              <input
+                type="radio"
+                name="theme"
+                value={value}
+                defaultChecked={theme === value}
+                onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>
+                <span className="block font-semibold">{label}</span>
+                <span className="block text-sm text-muted">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <noscript>
+        <button className="btn-ghost mt-3">Save theme</button>
+      </noscript>
     </form>
   );
 }

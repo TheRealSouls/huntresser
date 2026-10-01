@@ -98,12 +98,13 @@ button on a profile). A player's trophies must be visible to "Anyone" in their P
 
 Never ask players for their own NPSSO token or PSN password. A token gives full control of their PSN account.
 
-**Syncing big libraries:** a run processes at most `PSN_SYNC_TITLES_PER_RUN` changed trophy lists (default 60),
-`PSN_SYNC_CONCURRENCY` at a time (default 4), and remembers where it stopped. Right after linking, and after a *Sync now*
+**Syncing big libraries:** a run processes at most `PSN_SYNC_TITLES_PER_RUN` changed trophy lists (default 200),
+`PSN_SYNC_CONCURRENCY` at a time (default 10), and remembers where it stopped. The runs of one import share the game
+list they fetched first, and Settings shows "N of M games imported" while it runs. Right after linking, and after a *Sync now*
 that leaves a backlog, the server keeps running batches in the background until the library is imported. After that, a
 sync only reads PSN's game list up to the last synced game (PSN sorts it newest first) and fetches the lists that
 changed. Measured against real PSN: a 10-game library imports in about 3 s, a routine sync with nothing new takes under
-half a second, and big libraries import at about 0.25 to 0.5 s per game.
+half a second, and big libraries import at about 0.13 s per game (a 4,500-game library in about 10 minutes).
 
 **Sync schedule and plans:** `src/lib/plans.ts` sets how often each plan syncs. Free accounts sync automatically every 7
 days and can press *Sync now* once an hour. Premium (`User.plan = "PREMIUM"`, not sold yet) syncs automatically every hour
@@ -149,6 +150,17 @@ leaderboards.
 "Latest platinums", "Top this week" and "Most played this month" merge members' synced history with tracked players' recent
 games (`PsnPlayerTitle`) and snapshots. Platinum dates are exact: they're read from the trophy list, a few per refresh.
 "Popular guides" only has what members write; while it's empty it lists the most-played games that still need a guide.
+
+## Trophy addresses and dark mode
+
+Trophy pages live at `/games/<game>/<trophy>`, for example `/games/hollow-knight/watcher`. Slugs are unique within a
+list; hidden trophies use `hidden-<number>` so the address doesn't spoil them, and repeated names get the trophy number
+added (`src/lib/trophy-slug.ts`). Old `/trophies/<id>` links redirect. `npm run db:trophy-slugs` fills in any trophy
+without a slug and runs in the Render build.
+
+The site is light by default. Members can switch to dark in Settings, Appearance (`User.theme`); it never follows the
+device's own light or dark setting. Dark colours are in `globals.css` under `:root[data-theme="dark"]` and meet the
+same contrast rules as the light ones.
 
 ## Forums
 

@@ -28,6 +28,8 @@ model User {
   plan               String   @default("FREE")
   // USER | ADMIN. Admins manage forum sections and moderate threads (npm run user:role).
   role               String   @default("USER")
+  // light | dark. The site is light unless the member picks dark in Settings; it never follows the device.
+  theme              String   @default("light")
   createdAt          DateTime @default(now())
 
   psn              PsnAccount?
@@ -256,6 +258,8 @@ model Trophy {
   gameId      String
   groupId     String
   psnTrophyId Int
+  // Address within the game: /games/hollow-knight/watcher (see src/lib/trophy-slug.ts).
+  slug        String?
   name        String
   description String
   // PLATINUM | GOLD | SILVER | BRONZE
@@ -273,6 +277,7 @@ model Trophy {
   steps   GuideStep[]
 
   @@unique([gameId, psnTrophyId])
+  @@unique([gameId, slug])
   @@index([name])
 }
 

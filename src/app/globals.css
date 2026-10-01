@@ -50,6 +50,38 @@
   --color-bad: #b8352a;
 }
 
+/* Dark mode, chosen in Settings (html[data-theme="dark"]). Light is the
+   default and the site never follows the device's own setting. Same
+   contrast rules as the light tokens: text 4.5:1 or better on every
+   surface, white 4.5:1 on accent, form edges 3:1. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0f1216;
+  --color-surface: #161a20;
+  --color-surface-2: #1c2129;
+  --color-surface-3: #252b35;
+  --color-line: #2c333e;
+  --color-line-strong: #6f7784;
+  --color-text: #eef1f5;
+  --color-muted: #b3bac5;
+  --color-faint: #949cab;
+  --color-accent: #d8352c;
+  --color-accent-hi: #b92a22;
+  --color-accent-text: #ff8277;
+  --color-plat: #b8c4d3;
+  --color-gold: #e2b64f;
+  --color-silver: #bcc3cc;
+  --color-bronze: #e09a6c;
+  --color-ultra: #e2b64f;
+  --color-very: #f0a06a;
+  --color-rare: #74c9be;
+  --color-common: #b3bac5;
+  --color-good: #73d38c;
+  --color-bad: #ff8277;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-raised: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+}
+
 html {
   color-scheme: light;
   -webkit-text-size-adjust: 100%;

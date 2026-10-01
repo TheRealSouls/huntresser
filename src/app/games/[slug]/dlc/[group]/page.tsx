@@ -72,6 +72,7 @@ export default async function DlcPage({ params }: { params: Promise<Params> }) {
         <Stat label="Rarest trophy" value={rarest != null ? `${rarest.toFixed(1)}%` : "n/a"} />
       </StatGrid>
       <TrophyList
+        gameSlug={game.slug}
         groups={[dlc]}
         trophies={trophies}
         earned={hasProgress ? new Map(mine.map((m) => [m.trophyId, m.earnedAt])) : undefined}

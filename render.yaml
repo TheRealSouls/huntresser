@@ -9,7 +9,7 @@ services:
     plan: free
     region: frankfurt
     # db push creates/updates the tables; it refuses changes that would delete data, which fails the build safely.
-    buildCommand: npm ci --include=dev && npx prisma db push && npm run demo:user && npm run build
+    buildCommand: npm ci --include=dev && npx prisma db push && npm run db:trophy-slugs && npm run demo:user && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true

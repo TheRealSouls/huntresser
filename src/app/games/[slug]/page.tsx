@@ -234,7 +234,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             </SectionTitle>
             {game.trophyError && <Notice tone="bad">{game.trophyError}</Notice>}
             {!game.trophyError && game.trophies.length === 0 && <p className="text-sm text-muted">No trophy list is available for this game yet.</p>}
-            <TrophyList groups={game.groups} trophies={game.trophies} earned={earned} sort={sort as "default" | "rarity" | "type"} />
+            <TrophyList gameSlug={game.slug} groups={game.groups} trophies={game.trophies} earned={earned} sort={sort as "default" | "rarity" | "type"} />
           </section>
         </div>
 

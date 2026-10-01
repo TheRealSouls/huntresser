@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { trophyHref } from "@/lib/trophy-slug";
 import { getCurrentUser } from "@/lib/auth";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { ULTRA_RARE_MAX } from "@/lib/trophies";
@@ -368,7 +369,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               <li key={u.id} className="flex items-center gap-3 py-3">
                 <TrophyIcon type={u.trophy.type} size={24} />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/trophies/${u.trophy.id}`} className={rowLink}>
+                  <Link href={u.trophy.slug ? trophyHref(u.trophy.game.slug, u.trophy.slug) : `/trophies/${u.trophy.id}`} className={rowLink}>
                     {u.trophy.name}
                   </Link>
                   <div className="truncate text-xs text-muted">

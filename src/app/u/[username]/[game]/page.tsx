@@ -103,6 +103,7 @@ export default async function UserGamePage({
       </div>
 
       <TrophyList
+        gameSlug={game.slug}
         groups={game.groups}
         trophies={trophies}
         earned={earned}

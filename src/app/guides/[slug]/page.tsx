@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
+import { trophyHref } from "@/lib/trophy-slug";
 import { getSessionUserId } from "@/lib/auth";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { GameArt } from "@/components/art";
@@ -20,7 +21,7 @@ const load = cache(async (slug: string) => {
     include: {
       game: true,
       author: { include: { psn: true } },
-      steps: { orderBy: { order: "asc" }, include: { trophy: true } },
+      steps: { orderBy: { order: "asc" }, include: { trophy: { include: { game: { select: { slug: true } } } } } },
     },
   });
   if (!guide) notFound();
@@ -144,7 +145,7 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
                         <p className="prose-guide mt-1">{s.body}</p>
                         {s.trophy && (
                           <Link
-                            href={`/trophies/${s.trophy.id}`}
+                            href={s.trophy.slug ? trophyHref(s.trophy.game.slug, s.trophy.slug) : `/trophies/${s.trophy.id}`}
                             className="mt-3 inline-flex items-center gap-2 rounded-sm border border-line bg-surface-2 px-3 py-1.5 text-sm hover:border-muted"
                           >
                             <TrophyIcon type={s.trophy.type} size={18} dim={viewerId ? !earnedIds.has(s.trophy.id) : false} />
