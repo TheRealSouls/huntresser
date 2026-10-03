@@ -36,7 +36,15 @@ export default function PrivacyPage() {
         </ul>
         <h3>When you use the site</h3>
         <ul>
-          <li>Guides, tips, forum threads and posts, votes, friend requests and sessions you create or join.</li>
+          <li>
+            Guides, tips, forum threads and posts, community updates, club memberships, game ratings, votes, friend requests, who you
+            follow, and sessions and session comments you create or join.
+          </li>
+          <li>
+            Private messages you send and receive. They are stored so the people in the conversation can read them. We don&apos;t
+            read them as a matter of course; staff may look at a conversation when someone in it reports abuse or the law requires it.
+          </li>
+          <li>Profile extras you choose to add: streaming links, a banner, your Trophy Vault and a &quot;playing now&quot; status.</li>
           <li>
             Anything you send through the <Link href="/contact">contact form</Link>: your email, the message, and your name, username
             or PSN Online ID if you include them.
@@ -83,8 +91,9 @@ export default function PrivacyPage() {
 
         <h2>Who can see it</h2>
         <p>
-          Your profile visibility setting decides who sees your trophy data: everyone, friends only, or just you. Guides, tips and forum
-          posts are public. Your email address is never shown to other users.
+          Your profile visibility setting decides who sees your trophy data: everyone, friends only, or just you. Guides, tips, forum
+          posts, community updates, club posts, session comments, game ratings (as averages), your followers and who you follow are
+          public. Private messages are seen only by the people in the conversation. Your email address is never shown to other users.
         </p>
         <p>
           We use a small number of service providers to run the site, such as our hosting and database provider, Formspree,
@@ -100,6 +109,11 @@ export default function PrivacyPage() {
           <li>Account data: until you delete your account.</li>
           <li>Synced trophy data: until you unlink PSN or delete your account.</li>
           <li>Sync logs: kept with your account and removed when it is deleted.</li>
+          <li>
+            Messages: your side of a conversation is deleted with your account, or when you leave the conversation and nobody else is
+            in it. Messages you sent to others stay in their copy, shown as from a deleted user.
+          </li>
+          <li>Clubs you own are deleted with your account, along with the updates posted in them.</li>
           <li>
             Forum posts: they stay up after you delete your account, shown as posted by a deleted user, so the conversations
             around them still make sense. Delete any posts you want gone first, or ask us to remove them.

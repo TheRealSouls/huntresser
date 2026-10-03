@@ -3,13 +3,26 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { durationText } from "@/lib/plans";
-import { deleteAccount, startPsnLink, syncNow, updatePrivacy, updateProfile, updateTheme, verifyPsn } from "@/actions/account";
+import { deleteAccount, startPsnLink, syncNow, updatePrivacy, updateProfile, updateTheme, updateVault, verifyPsn } from "@/actions/account";
+import { PROFILE_ACCENTS } from "@/lib/profile-themes";
 import { SubmitButton } from "@/components/client";
 import { FormMessage } from "@/components/ui";
 import { COUNTRIES } from "@/lib/countries";
 
-export function ProfileForm({ bio, country }: { bio: string; country: string }) {
+export type ProfileValues = {
+  bio: string;
+  country: string;
+  youtubeUrl: string;
+  twitchUrl: string;
+  streamUrl: string;
+  profileAccent: string;
+  bannerGameId: string;
+  allowMessages: string;
+};
+
+export function ProfileForm({ values, games }: { values: ProfileValues; games: { id: string; title: string }[] }) {
   const [state, action] = useActionState(updateProfile, null);
+  const { bio, country } = values;
   return (
     <form action={action} className="space-y-4">
       <div>
@@ -23,6 +36,55 @@ export function ProfileForm({ bio, country }: { bio: string; country: string }) 
           {Object.entries(COUNTRIES).map(([c, n]) => (
             <option key={c} value={c}>{n}</option>
           ))}
+        </select>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="bannerGameId" className="label">Profile banner</label>
+          <select id="bannerGameId" name="bannerGameId" defaultValue={values.bannerGameId} className="input">
+            <option value="">No banner</option>
+            {games.map((g) => (
+              <option key={g.id} value={g.id}>{g.title}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted">Artwork from one of your games, shown behind your profile.</p>
+        </div>
+        <div>
+          <label htmlFor="profileAccent" className="label">Profile colour</label>
+          <select id="profileAccent" name="profileAccent" defaultValue={values.profileAccent} className="input">
+            {Object.entries(PROFILE_ACCENTS).map(([k, l]) => (
+              <option key={k} value={k}>{l}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted">The accent colour on your profile page. Everyone who visits sees it.</p>
+        </div>
+      </div>
+
+      <fieldset className="space-y-3">
+        <legend className="label">Where you stream</legend>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label htmlFor="youtubeUrl" className="sr-only">YouTube link</label>
+            <input id="youtubeUrl" name="youtubeUrl" defaultValue={values.youtubeUrl} maxLength={200} placeholder="youtube.com/@you" className="input" />
+          </div>
+          <div>
+            <label htmlFor="twitchUrl" className="sr-only">Twitch link</label>
+            <input id="twitchUrl" name="twitchUrl" defaultValue={values.twitchUrl} maxLength={200} placeholder="twitch.tv/you" className="input" />
+          </div>
+          <div>
+            <label htmlFor="streamUrl" className="sr-only">Another streaming link</label>
+            <input id="streamUrl" name="streamUrl" defaultValue={values.streamUrl} maxLength={200} placeholder="Kick, TikTok or another link" className="input" />
+          </div>
+        </div>
+      </fieldset>
+
+      <div>
+        <label htmlFor="allowMessages" className="label">Who can message you</label>
+        <select id="allowMessages" name="allowMessages" defaultValue={values.allowMessages} className="input">
+          <option value="EVERYONE">Any member</option>
+          <option value="FRIENDS">Friends and people I follow</option>
+          <option value="NOBODY">Nobody</option>
         </select>
       </div>
       <FormMessage state={state} />
@@ -135,6 +197,49 @@ export function SyncButton({ nextAt, busy }: { nextAt: string | null; busy: bool
         )}
       </div>
       <FormMessage state={state} />
+    </form>
+  );
+}
+
+export type VaultOption = { id: string; name: string; game: string; type: string; rate: number | null };
+
+/** Tick up to five earned trophies to show in the Trophy Vault on the profile. */
+export function VaultForm({ options, picked: initial }: { options: VaultOption[]; picked: string[] }) {
+  const [state, action] = useActionState(updateVault, null);
+  const [picked, setPicked] = useState<string[]>(initial);
+  if (options.length === 0) return <p className="text-sm text-muted">Sync your trophies first, then pick your five best here.</p>;
+  return (
+    <form action={action} className="space-y-3">
+      <p className="text-sm text-muted">
+        Pick up to five trophies to show off at the top of your profile. Your rarest ones are listed first. {picked.length} of 5 picked.
+      </p>
+      <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
+        {options.map((t) => {
+          const on = picked.includes(t.id);
+          return (
+            <label key={t.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-surface-2">
+              <input
+                type="checkbox"
+                name="trophyIds"
+                value={t.id}
+                checked={on}
+                disabled={!on && picked.length >= 5}
+                onChange={(e) => setPicked((p) => (e.target.checked ? [...p, t.id] : p.filter((x) => x !== t.id)))}
+                className="accent-[var(--color-accent)]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{t.name}</span>
+                <span className="block truncate text-xs text-muted">
+                  {t.game} · <span className="capitalize">{t.type.toLowerCase()}</span>
+                </span>
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">{t.rate != null ? `${t.rate.toFixed(1)}%` : ""}</span>
+            </label>
+          );
+        })}
+      </div>
+      <FormMessage state={state} />
+      <SubmitButton>Save vault</SubmitButton>
     </form>
   );
 }

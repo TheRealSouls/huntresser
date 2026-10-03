@@ -8,10 +8,16 @@ import { canViewProfile, friendState } from "@/lib/social";
 export const loadProfile = cache(async (username: string) => {
   const owner = await prisma.user.findUnique({
     where: { username: username.toLowerCase() },
-    include: { psn: true },
+    include: {
+      psn: true,
+      bannerGame: { select: { title: true, slug: true, coverHue: true, screenshots: true, iconUrl: true } },
+      nowPlayingGame: { select: { title: true, slug: true } },
+    },
   });
   if (!owner) notFound();
   const viewerId = await getSessionUserId();
   const [canView, relation] = await Promise.all([canViewProfile(viewerId, owner), friendState(viewerId, owner.id)]);
   return { owner, viewerId, canView, relation };
 });
+
+export type ProfileOwner = Awaited<ReturnType<typeof loadProfile>>["owner"];

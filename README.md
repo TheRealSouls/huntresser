@@ -162,12 +162,35 @@ The site is light by default. Members can switch to dark in Settings, Appearance
 device's own light or dark setting. Dark colours are in `globals.css` under `:root[data-theme="dark"]` and meet the
 same contrast rules as the light ones.
 
+## Community features
+
+- **Community activity** (`/community`): short updates from members, with tabs for everyone, friends and people you
+  follow, and your clubs. Members can follow anyone (no approval) as well as add friends.
+- **Clubs** (`/clubs`): groups around an interest. Members join to see and post updates; the owner or an admin can delete
+  a club. A club is deleted with its owner's account.
+- **Messages** (`/messages`): private conversations and group chats (up to 20 people). Members choose who can message
+  them in Settings (anyone, friends and people they follow, or nobody). Only a conversation's members can open it.
+- **Reputation**: counted live from what a member contributes (threads, replies, guides, tips and their upvotes, updates,
+  sessions hosted), with ranks from Newcomer to Legend and badges. Shown next to forum posts and on `/forums/user/<name>`.
+- **Profiles**: Trophy Vault (five chosen trophies), a banner from one of the member's games, an accent colour
+  (`src/lib/profile-themes.ts`), YouTube/Twitch/other stream links, "Playing now" (set on a game page, clears after 3
+  hours), a trophy log of the last 50 trophies with exact times, saved guides, and filters for platform, completion and
+  order on the games list.
+- **Games**: members rate the platinum's difficulty (1 to 10, averaged with guides) and the game (1 to 5 stars); admins can
+  flag a list's platinum or 100% as unobtainable with a reason; "Reveal all hidden trophies"; recent players.
+- **Guides**: a trophy-by-trophy section under the roadmap, favourites, and "Send to a friend" (copy, email, share sheet or
+  a private message).
+- **Sessions**: each session has its own page with the trophies it's for, who has joined, and comments; times show in the
+  viewer's own time zone.
+
 ## Forums
 
 `/forums` has sections, each with optional sub-sections, holding threads and replies. A thread can be tagged with a game,
 and the game's page lists its threads under Discussion. Admins create, edit, reorder and delete sections at
 `/forums/manage`, and can pin, lock, move and delete threads and posts. Members can edit and delete their own posts.
-Make someone an admin with `npm run user:role -- <username> ADMIN` (`USER` to undo). Never make the shared demo account
+Make someone an admin with `npm run user:role -- <username> ADMIN` (`USER` to undo). `npm run forums:seed` creates the
+standard sections and sub-sections (safe to run again; it leaves existing ones alone). The forum also has Rules
+(`/forums/rules`) and Staff (`/forums/staff`, everyone with the admin role) tabs. Never make the shared demo account
 an admin: its password is public. Posts stay up, credited to a deleted user, when an account is deleted.
 
 ## New trophy lists and new DLC

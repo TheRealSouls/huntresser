@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createSession } from "@/actions/community";
 import { SubmitButton, useKeepValuesAction } from "@/components/client";
 import { FormMessage } from "@/components/ui";
@@ -10,6 +10,21 @@ export function SessionForm({ initialGame }: { initialGame?: PickedGame | null }
   const [state, form, pending] = useKeepValuesAction(createSession, null);
   const [game, setGame] = useState<PickedGame | null>(initialGame ?? null);
   const [local, setLocal] = useState("");
+  const [trophies, setTrophies] = useState<{ id: string; name: string; type: string; hidden: boolean }[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
+
+  // The chosen game's trophies, so the host can tick the ones the session is for.
+  useEffect(() => {
+    setTrophies([]);
+    setPicked([]);
+    if (!game) return;
+    const ctrl = new AbortController();
+    fetch(`/api/games/${game.id}/trophies`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((d: { trophies: typeof trophies }) => setTrophies(d.trophies ?? []))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [game]);
   const platforms = game?.platforms.split(",").filter((p) => ["PS5", "PS4", "PS3", "PSVITA"].includes(p)) ?? [];
   const platformOptions = platforms.length ? platforms : ["PS5", "PS4"];
 
@@ -69,6 +84,32 @@ export function SessionForm({ initialGame }: { initialGame?: PickedGame | null }
         {/* datetime-local has no timezone, so send an absolute ISO timestamp computed in the browser. */}
         <input type="hidden" name="startsAt" value={local ? new Date(local).toISOString() : ""} />
       </div>
+      {trophies.length > 0 && (
+        <fieldset>
+          <legend className="label">Trophies you&apos;re going for ({picked.length} picked)</legend>
+          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
+            {trophies.map((t) => (
+              <label key={t.id} className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 text-sm hover:bg-surface-2">
+                <input
+                  type="checkbox"
+                  name="trophyIds"
+                  value={t.id}
+                  checked={picked.includes(t.id)}
+                  onChange={(e) => setPicked((p) => (e.target.checked ? [...p, t.id] : p.filter((x) => x !== t.id)))}
+                  className="mt-1 accent-[var(--color-accent)]"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate">{t.name}</span>
+                  <span className="block text-xs capitalize text-muted">
+                    {t.type.toLowerCase()}
+                    {t.hidden ? " · hidden" : ""}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <FormMessage state={state} />
       <SubmitButton className="btn-primary w-full" pending={pending}>
         Create session

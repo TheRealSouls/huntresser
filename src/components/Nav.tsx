@@ -2,15 +2,19 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isAdmin } from "@/lib/forum";
+import { unreadConversations } from "@/lib/community";
 import { SITE } from "@/lib/site";
 import { Avatar } from "./ui";
 import { NavLinks } from "./NavLinks";
 import { SearchIcon } from "./icons";
 import { UserMenu } from "./UserMenu";
+import { SyncMyTrophies } from "./SyncMyTrophies";
 
 export async function Nav() {
   const user = await getCurrentUser();
-  const pending = user ? await prisma.friendship.count({ where: { addresseeId: user.id, status: "PENDING" } }) : 0;
+  const [pending, unread] = user
+    ? await Promise.all([prisma.friendship.count({ where: { addresseeId: user.id, status: "PENDING" } }), unreadConversations(user.id)])
+    : [0, 0];
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/95 backdrop-blur">
@@ -32,12 +36,14 @@ export async function Nav() {
           <Link href="/search" className="btn-ghost px-2.5 md:hidden" aria-label="Search">
             <SearchIcon size={18} />
           </Link>
+          {user?.psn?.verified && <SyncMyTrophies />}
           {user ? (
             <UserMenu
               avatar={<Avatar name={user.username} hue={user.avatarHue} url={user.psn?.avatarUrl} size={30} className="rounded-md" />}
               name={user.psn?.onlineId ?? user.username}
               username={user.username}
               pending={pending}
+              unread={unread}
               admin={isAdmin(user)}
             />
           ) : (

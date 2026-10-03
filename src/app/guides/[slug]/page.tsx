@@ -8,7 +8,10 @@ import { getSessionUserId } from "@/lib/auth";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { GameArt } from "@/components/art";
 import { TrophyIcon } from "@/components/TrophyIcon";
-import { StepCheck } from "@/components/client";
+import { RevealButton, Spoiler, SpoilerSwap, StepCheck, SubmitButton } from "@/components/client";
+import { HeartIcon } from "@/components/icons";
+import { ShareMenu } from "@/components/ShareMenu";
+import { toggleGuideFavourite } from "@/actions/community";
 import { Tips } from "@/components/Tips";
 import { YouTube } from "@/components/YouTube";
 import { Avatar, DifficultyMeter, RarityBadge } from "@/components/ui";
@@ -57,6 +60,31 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
     : new Set<string>();
 
   const present = SECTIONS.filter((s) => guide.steps.some((st) => st.kind === s.kind));
+  // "How to earn each trophy", in the list's own order.
+  const trophyNotes = guide.steps
+    .filter((s) => s.kind === "TROPHY" && s.trophy)
+    .sort((a, b) => a.trophy!.psnTrophyId - b.trophy!.psnTrophyId);
+
+  const [favourite, favouriteCount, shareWith] = await Promise.all([
+    viewerId ? prisma.guideFavourite.findUnique({ where: { userId_guideId: { userId: viewerId, guideId: guide.id } } }) : null,
+    prisma.guideFavourite.count({ where: { guideId: guide.id } }),
+    // People the viewer can send the guide to: friends and people they follow.
+    viewerId
+      ? prisma.user.findMany({
+          where: {
+            id: { not: viewerId },
+            OR: [
+              { followers: { some: { followerId: viewerId } } },
+              { sentRequests: { some: { addresseeId: viewerId, status: "ACCEPTED" } } },
+              { receivedRequests: { some: { requesterId: viewerId, status: "ACCEPTED" } } },
+            ],
+          },
+          orderBy: { username: "asc" },
+          take: 50,
+          select: { id: true, username: true, psn: { select: { onlineId: true } } },
+        })
+      : [],
+  ]);
 
   return (
     <div>
@@ -75,6 +103,32 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
               {guide.author.psn?.onlineId ?? guide.author.username}
             </Link>
             · updated {formatDate(guide.updatedAt)} · {formatNumber(guide.views)} views
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            {viewerId ? (
+              <form action={toggleGuideFavourite}>
+                <input type="hidden" name="guideId" value={guide.id} />
+                <SubmitButton className={favourite ? "btn-primary" : "btn-ghost"}>
+                  <HeartIcon size={16} filled={!!favourite} />
+                  {favourite ? "Saved to favourites" : "Add to favourites"}
+                </SubmitButton>
+              </form>
+            ) : (
+              <Link href={`/login?next=/guides/${guide.slug}`} className="btn-ghost">
+                <HeartIcon size={16} />
+                Log in to save
+              </Link>
+            )}
+            <ShareMenu
+              path={`/guides/${guide.slug}`}
+              title={guide.title}
+              friends={shareWith.map((u) => ({ id: u.id, name: u.psn?.onlineId ?? u.username }))}
+            />
+            {favouriteCount > 0 && (
+              <span className="text-xs text-muted">
+                Saved by {favouriteCount} member{favouriteCount === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
         </div>
         <GameArt title={guide.game.title} hue={guide.game.coverHue} iconUrl={guide.game.iconUrl} className="hidden w-28 md:block" />
@@ -105,6 +159,9 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
                 {s.title}
               </a>
             ))}
+            {trophyNotes.length > 0 && (
+              <a href="#trophies" className="block rounded-sm px-3 py-2 text-muted hover:bg-surface-2 hover:text-text">Trophy by trophy</a>
+            )}
             <a href="#tips" className="block rounded-sm px-3 py-2 text-muted hover:bg-surface-2 hover:text-text">Community tips</a>
           </nav>
         </aside>
@@ -132,7 +189,7 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
                       className={`card flex gap-4 p-5 ${section.kind === "MISSABLE" ? "border-bad/30" : ""}`}
                     >
                       {section.kind === "ROADMAP" ? (
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-accent font-bold">{i + 1}</span>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-accent font-bold text-white">{i + 1}</span>
                       ) : section.kind === "COLLECTIBLE" ? (
                         <StepCheck id={s.id} />
                       ) : section.kind === "MISSABLE" ? (
@@ -166,6 +223,49 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
               </section>
             );
           })}
+
+          {trophyNotes.length > 0 && (
+            <section id="trophies" className="scroll-mt-24">
+              <h2 className="mb-2 text-2xl font-bold">Trophy by trophy</h2>
+              <p className="mb-4 text-sm text-muted">
+                How to earn {trophyNotes.length === 1 ? "this trophy" : `each of these ${trophyNotes.length} trophies`}, in the order of the trophy list.
+              </p>
+              <ol className="space-y-3">
+                {trophyNotes.map((s) => {
+                  const t = s.trophy!;
+                  const got = earnedIds.has(t.id);
+                  return (
+                    <Spoiler key={s.id} hidden={t.hidden && !got}>
+                      <li className={`card flex gap-4 p-5 ${got ? "bg-surface-2" : ""}`}>
+                        <span className="flex shrink-0 flex-col items-center">
+                          <TrophyIcon type={t.type} size={32} />
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">{t.type.toLowerCase()}</span>
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <SpoilerSwap concealed={<RevealButton />} focusOnReveal>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-semibold">
+                                <Link
+                                  href={t.slug ? trophyHref(t.game.slug, t.slug) : `/trophies/${t.id}`}
+                                  className="hover:underline hover:underline-offset-4"
+                                >
+                                  {t.name}
+                                </Link>
+                              </h3>
+                              <RarityBadge rate={t.earnedRate} />
+                              {got && <span className="text-xs font-semibold text-good">Earned</span>}
+                            </div>
+                            <p className="text-sm text-muted">{t.description}</p>
+                            <p className="prose-guide mt-2">{s.body}</p>
+                          </SpoilerSwap>
+                        </div>
+                      </li>
+                    </Spoiler>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
 
           <Tips guideId={guide.id} path={`/guides/${guide.slug}`} />
         </div>

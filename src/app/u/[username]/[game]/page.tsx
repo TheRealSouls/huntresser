@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 import { GameArt } from "@/components/art";
 import { TrophyList } from "@/components/TrophyList";
+import { RevealAllButton, SpoilerGroup } from "@/components/client";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { EmptyState, ProgressBar } from "@/components/ui";
 import { loadProfile } from "../profile-data";
@@ -44,6 +45,7 @@ export default async function UserGamePage({
     prisma.userTrophy.findMany({ where: { userId: owner.id, trophy: { gameId: game.id } }, select: { trophyId: true, earnedAt: true } }),
   ]);
   const earned = new Map(earnedRows.map((r) => [r.trophyId, r.earnedAt]));
+  const hiddenLeft = game.trophies.filter((t) => t.hidden && !earned.has(t.id)).length;
   const trophies = game.trophies.filter((t) =>
     filter === "earned" ? earned.has(t.id) : filter === "unearned" ? !earned.has(t.id) : true,
   );
@@ -80,7 +82,9 @@ export default async function UserGamePage({
         </div>
       </header>
 
+      <SpoilerGroup>
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        {hiddenLeft > 0 && <RevealAllButton count={hiddenLeft} className="chip hover:text-text" />}
         {[
           ["all", "All"],
           ["earned", `Earned (${earned.size})`],
@@ -110,6 +114,7 @@ export default async function UserGamePage({
         ownerLabel={display}
         sort={sort as "default" | "rarity" | "type"}
       />
+      </SpoilerGroup>
     </div>
   );
 }

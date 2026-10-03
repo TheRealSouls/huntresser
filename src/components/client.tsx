@@ -67,10 +67,28 @@ export function ConfirmButton({ message, children, className = "btn-danger" }: {
  * (the icon and the text), so one click reveals all of them together.
  */
 const SpoilerContext = createContext<{ shown: boolean; reveal: () => void }>({ shown: true, reveal: () => {} });
+/** Shared by every Spoiler inside a SpoilerGroup, for "Reveal all hidden trophies". */
+const SpoilerGroupContext = createContext<{ all: boolean; setAll: (v: boolean) => void }>({ all: false, setAll: () => {} });
+
+export function SpoilerGroup({ children }: { children: ReactNode }) {
+  const [all, setAll] = useState(false);
+  return <SpoilerGroupContext.Provider value={{ all, setAll }}>{children}</SpoilerGroupContext.Provider>;
+}
+
+/** Shows or re-hides every hidden trophy in the surrounding SpoilerGroup. */
+export function RevealAllButton({ count, className = "btn-ghost px-3 py-1.5 text-xs" }: { count: number; className?: string }) {
+  const { all, setAll } = useContext(SpoilerGroupContext);
+  return (
+    <button type="button" onClick={() => setAll(!all)} aria-pressed={all} className={className}>
+      {all ? "Hide hidden trophies" : `Reveal all ${count} hidden trophies`}
+    </button>
+  );
+}
 
 export function Spoiler({ hidden, children }: { hidden: boolean; children: ReactNode }) {
-  const [shown, setShown] = useState(!hidden);
-  return <SpoilerContext.Provider value={{ shown, reveal: () => setShown(true) }}>{children}</SpoilerContext.Provider>;
+  const [own, setOwn] = useState(!hidden);
+  const { all } = useContext(SpoilerGroupContext);
+  return <SpoilerContext.Provider value={{ shown: own || all, reveal: () => setOwn(true) }}>{children}</SpoilerContext.Provider>;
 }
 
 /**

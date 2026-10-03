@@ -255,7 +255,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <ul className="divide-y divide-line border-y border-line">
               {sessions.map((s) => (
                 <li key={s.id}>
-                  <Link href={`/sessions#${s.id}`} className="group flex items-center justify-between gap-3 py-3">
+                  <Link href={`/sessions/${s.id}`} className="group flex items-center justify-between gap-3 py-3">
                     <div>
                       <div className="text-sm font-semibold group-hover:underline group-hover:underline-offset-4">{s.title}</div>
                       <div className="text-xs text-muted">

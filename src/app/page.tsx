@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { trophyHref } from "@/lib/trophy-slug";
 import { getCurrentUser } from "@/lib/auth";
 import { getLeaderboard } from "@/lib/leaderboard";
-import { ULTRA_RARE_MAX } from "@/lib/trophies";
 import { formatDate, formatNumber, timeAgo } from "@/lib/utils";
 import { flag } from "@/lib/countries";
 import { GameArt } from "@/components/art";
@@ -51,10 +50,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const [totals, recentPlats, rareUnlocks, weekly, guides, trending, needGuides, newLists, dlcs, sessions, covers] = await Promise.all([
     siteTotals(),
     latestPlatinums(6),
+    // The newest unlocks of any rarity, from members who share their activity.
     prisma.userTrophy.findMany({
-      where: { trophy: { earnedRate: { lte: ULTRA_RARE_MAX } }, user: publicActivity },
+      where: { user: publicActivity },
       orderBy: { earnedAt: "desc" },
-      take: 5,
+      take: 6,
       include: { user: { include: { psn: true } }, trophy: { include: { game: true } } },
     }),
     getLeaderboard({ metric: "points", period: "weekly", scope: "global", limit: 5 }),
@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     heroCovers(24),
   ]);
   const listFamilies = await familiesFor(newLists.map((g) => g.titleKey));
-  const { hunters, trophies: trophyCount, platinums: platCount } = totals;
+  const { members, games: gameCount, trophies: trophyCount, platinums: platCount } = totals;
 
   const trendingGames = await prisma.game.findMany({
     where: { id: { in: trending } },
@@ -128,11 +128,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </div>
           <p className="mt-8 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
             <span>
-              <strong className="font-semibold text-text">{formatNumber(hunters)}</strong> hunters
+              <strong className="font-semibold text-text">{formatNumber(members)}</strong> members
             </span>
             <span aria-hidden>·</span>
             <span>
-              <strong className="font-semibold text-text">{formatNumber(trophyCount)}</strong> trophies tracked
+              <strong className="font-semibold text-text">{formatNumber(gameCount)}</strong> games tracked
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              <strong className="font-semibold text-text">{formatNumber(trophyCount)}</strong> trophies earned
             </span>
             <span aria-hidden>·</span>
             <span>
@@ -166,64 +170,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </p>
         </form>
       </section>
-
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <Panel
-          title="Latest platinums"
-          icon={<TrophyLineIcon />}
-          action={<MoreLink href="/leaderboards?metric=platinums">Platinum leaders</MoreLink>}
-        >
-          {recentPlats.length === 0 ? (
-            <p className="py-4 text-sm text-muted">No platinums yet. They appear as players link their accounts or get tracked.</p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {recentPlats.map((p) => (
-                <li key={p.key} className="flex items-center gap-3 py-3">
-                  <GameArt title={p.game.title} hue={p.game.coverHue} iconUrl={p.game.iconUrl} size="sm" className="w-12 rounded-md" />
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/games/${p.game.slug}`} className={rowLink}>
-                      {p.game.title}
-                    </Link>
-                    <div className="truncate text-xs text-muted">
-                      <Link href={p.player.href} className="hover:text-text">
-                        {p.player.name}
-                      </Link>{" "}
-                      {flag(p.player.country)} · {timeAgo(p.at)}
-                    </div>
-                  </div>
-                  <TrophyIcon type="PLATINUM" size={24} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel title="Top this week" icon={<ChartIcon />} action={<MoreLink href="/leaderboards?period=weekly">Full board</MoreLink>}>
-          <ol className="divide-y divide-line">
-            {weekly.map((r) => (
-              <li key={r.key} className="flex items-center gap-3 py-3">
-                <span className="w-6 text-right text-sm font-semibold tabular-nums text-muted">{r.rank}.</span>
-                <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={34} className="rounded-md" />
-                <Link href={r.href} className="min-w-0 flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
-                  {r.name} <span className="text-xs">{flag(r.country)}</span>
-                </Link>
-                <span className="text-sm tabular-nums text-muted">{formatNumber(r.points)} pts</span>
-              </li>
-            ))}
-            {weekly.length === 0 && <li className="py-4 text-sm text-muted">Nobody has earned a trophy yet this week.</li>}
-          </ol>
-        </Panel>
-      </div>
-
-      {trendingSorted.length > 0 && (
-        <Panel title="Most played this month" icon={<FlameIcon />} action={<MoreLink href="/games">All games</MoreLink>}>
-          <div className="grid grid-cols-2 gap-3 py-5 sm:grid-cols-3 lg:grid-cols-6">
-            {trendingSorted.map((g) => (
-              <GameCard key={g.id} game={{ ...g, platRate: g.trophies[0]?.earnedRate ?? null }} />
-            ))}
-          </div>
-        </Panel>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="New trophy lists" icon={<StackIcon />} action={<MoreLink href="/games">All games</MoreLink>}>
@@ -283,6 +229,64 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         </Panel>
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <Panel
+          title="Latest platinums"
+          icon={<TrophyLineIcon />}
+          action={<MoreLink href="/leaderboards?metric=platinums">Platinum leaders</MoreLink>}
+        >
+          {recentPlats.length === 0 ? (
+            <p className="py-4 text-sm text-muted">No platinums yet. They appear as players link their accounts or get tracked.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {recentPlats.map((p) => (
+                <li key={p.key} className="flex items-center gap-3 py-3">
+                  <GameArt title={p.game.title} hue={p.game.coverHue} iconUrl={p.game.iconUrl} size="sm" className="w-12 rounded-md" />
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/games/${p.game.slug}`} className={rowLink}>
+                      {p.game.title}
+                    </Link>
+                    <div className="truncate text-xs text-muted">
+                      <Link href={p.player.href} className="hover:text-text">
+                        {p.player.name}
+                      </Link>{" "}
+                      {flag(p.player.country)} · {timeAgo(p.at)}
+                    </div>
+                  </div>
+                  <TrophyIcon type="PLATINUM" size={24} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title="Top this week" icon={<ChartIcon />} action={<MoreLink href="/leaderboards?period=weekly">Full board</MoreLink>}>
+          <ol className="divide-y divide-line">
+            {weekly.map((r) => (
+              <li key={r.key} className="flex items-center gap-3 py-3">
+                <span className="w-6 text-right text-sm font-semibold tabular-nums text-muted">{r.rank}.</span>
+                <Avatar name={r.name} hue={r.avatarHue} url={r.avatarUrl} size={34} className="rounded-md" />
+                <Link href={r.href} className="min-w-0 flex-1 truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+                  {r.name} <span className="text-xs">{flag(r.country)}</span>
+                </Link>
+                <span className="text-sm tabular-nums text-muted">{formatNumber(r.points)} pts</span>
+              </li>
+            ))}
+            {weekly.length === 0 && <li className="py-4 text-sm text-muted">Nobody has earned a trophy yet this week.</li>}
+          </ol>
+        </Panel>
+      </div>
+
+      {trendingSorted.length > 0 && (
+        <Panel title="Most played this month" icon={<FlameIcon />} action={<MoreLink href="/games">All games</MoreLink>}>
+          <div className="grid grid-cols-2 gap-3 py-5 sm:grid-cols-3 lg:grid-cols-6">
+            {trendingSorted.map((g) => (
+              <GameCard key={g.id} game={{ ...g, platRate: g.trophies[0]?.earnedRate ?? null }} />
+            ))}
+          </div>
+        </Panel>
+      )}
+
       <Panel title="Gaming sessions" icon={<CalendarIcon />} action={<MoreLink href="/sessions">All sessions</MoreLink>}>
         {sessions.length === 0 ? (
           <p className="py-4 text-sm text-muted">
@@ -301,7 +305,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               >
                 <GameArt title={s.game.title} hue={s.game.coverHue} iconUrl={s.game.iconUrl} size="sm" className="w-11 rounded-md" />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/sessions#${s.id}`} className={rowLink}>
+                  <Link href={`/sessions/${s.id}`} className={rowLink}>
                     {s.title}
                   </Link>
                   <div className="truncate text-xs text-muted">
@@ -363,7 +367,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           )}
         </Panel>
 
-        <Panel title="Recent ultra rares" icon={<SparkIcon />}>
+        <Panel title="Recent trophies unlocked" icon={<SparkIcon />}>
           <ul className="divide-y divide-line">
             {rareUnlocks.map((u) => (
               <li key={u.id} className="flex items-center gap-3 py-3">
@@ -382,7 +386,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                 <RarityBadge rate={u.trophy.earnedRate} />
               </li>
             ))}
-            {rareUnlocks.length === 0 && <li className="py-4 text-sm text-muted">No ultra rare unlocks yet.</li>}
+            {rareUnlocks.length === 0 && <li className="py-4 text-sm text-muted">No trophies unlocked by members yet.</li>}
           </ul>
         </Panel>
       </div>

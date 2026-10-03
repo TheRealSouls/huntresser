@@ -24,9 +24,10 @@ async function familyIds(gameIds: string[]) {
 
 /**
  * Recomputes the estimates for these games and their sibling lists.
- * Difficulty is the mean of the guides' ratings (one decimal), hours and
- * playthroughs the median, so one wild guess doesn't swing the number.
- * With no guides left the estimates go back to empty.
+ * Difficulty is the mean of the guides' ratings and members' own ratings
+ * (one decimal); hours and playthroughs are the guides' median, so one wild
+ * guess doesn't swing the number. The game's star rating is the mean of
+ * members' ratings. With nothing left to go on, they go back to empty.
  */
 export async function refreshEstimates(gameIds: string[]) {
   if (!gameIds.length) return 0;
@@ -39,17 +40,24 @@ export async function refreshEstimates(gameIds: string[]) {
 
   let updated = 0;
   for (const ids of groups.values()) {
-    const guides = await prisma.guide.findMany({
-      where: { gameId: { in: ids } },
-      select: { difficulty: true, hoursEstimate: true, playthroughs: true },
-    });
-    const data = guides.length
-      ? {
-          difficulty: Math.round((guides.reduce((s, g) => s + g.difficulty, 0) / guides.length) * 10) / 10,
-          hoursToPlatinum: Math.round(median(guides.map((g) => g.hoursEstimate))),
-          playthroughs: Math.round(median(guides.map((g) => g.playthroughs))),
-        }
-      : { difficulty: null, hoursToPlatinum: null, playthroughs: null };
+    const [guides, ratings] = await Promise.all([
+      prisma.guide.findMany({
+        where: { gameId: { in: ids } },
+        select: { difficulty: true, hoursEstimate: true, playthroughs: true },
+      }),
+      prisma.gameRating.findMany({ where: { gameId: { in: ids } }, select: { difficulty: true, rating: true } }),
+    ]);
+    // Difficulty: every guide and every member's rating is one vote.
+    const votes = [...guides.map((g) => g.difficulty), ...ratings.flatMap((r) => (r.difficulty ? [r.difficulty] : []))];
+    const stars = ratings.flatMap((r) => (r.rating ? [r.rating] : []));
+    const mean = (xs: number[]) => Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 10) / 10;
+    const data = {
+      difficulty: votes.length ? mean(votes) : null,
+      hoursToPlatinum: guides.length ? Math.round(median(guides.map((g) => g.hoursEstimate))) : null,
+      playthroughs: guides.length ? Math.round(median(guides.map((g) => g.playthroughs))) : null,
+      rating: stars.length ? mean(stars) : null,
+      ratingCount: stars.length,
+    };
     const res = await prisma.game.updateMany({ where: { id: { in: ids } }, data });
     updated += res.count;
   }

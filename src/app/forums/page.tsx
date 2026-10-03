@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { forumIndex, isAdmin } from "@/lib/forum";
+import { FORUM_TABS, forumIndex, isAdmin } from "@/lib/forum";
 import { formatNumber, timeAgo } from "@/lib/utils";
-import { EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState, PageHeader, TabLinks } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Forums", description: "Talk trophies, platinums and games with other hunters." };
 
@@ -16,6 +16,10 @@ export default async function ForumsPage() {
       <PageHeader kicker="Community" title="Forums">
         Talk trophies, platinums and the games you&apos;re hunting.
       </PageHeader>
+
+      <div className="mb-6">
+        <TabLinks tabs={FORUM_TABS} active="forums" />
+      </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
         {sections.length > 0 && (

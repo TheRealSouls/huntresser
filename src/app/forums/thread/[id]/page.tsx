@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { flag } from "@/lib/countries";
 import { DELETED_USER, isAdmin, POSTS_PER_PAGE } from "@/lib/forum";
+import { reputations } from "@/lib/community";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { deletePost, moderateThread } from "@/actions/forum";
 import { GameArt } from "@/components/art";
@@ -62,6 +63,7 @@ export default async function ThreadPage({ params, searchParams }: { params: Pro
     admin ? prisma.forumSection.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }) : [],
   ]);
   const pages = Math.max(1, Math.ceil(total / POSTS_PER_PAGE));
+  const rep = await reputations(posts.flatMap((p) => (p.author ? [p.author.id] : [])));
   if (page === 1) await prisma.forumThread.update({ where: { id: thread.id }, data: { views: { increment: 1 } } });
 
   const canReply = !!user && (!thread.locked || admin);
@@ -136,7 +138,7 @@ export default async function ThreadPage({ params, searchParams }: { params: Pro
                 <Avatar name={name} hue={p.author?.avatarHue ?? 0} url={p.author?.psn?.avatarUrl} size={40} />
                 <div className="min-w-0 text-sm">
                   {p.author ? (
-                    <Link href={`/u/${p.author.username}`} className="block truncate font-semibold hover:underline hover:underline-offset-4">
+                    <Link href={`/forums/user/${p.author.username}`} className="block truncate font-semibold hover:underline hover:underline-offset-4">
                       {name}
                     </Link>
                   ) : (
@@ -145,7 +147,12 @@ export default async function ThreadPage({ params, searchParams }: { params: Pro
                   <div className="text-xs text-muted">
                     {p.author?.psn ? `Level ${p.author.psn.trophyLevel}` : ""} {flag(p.author?.country)}
                   </div>
-                  {p.author?.role === "ADMIN" && <span className="chip mt-1 border-accent-text/50 text-accent-text">Admin</span>}
+                  {p.author && (
+                    <div className="text-xs text-muted" title="Community reputation">
+                      {rep.get(p.author.id)?.rank} · {rep.get(p.author.id)?.points ?? 0} rep
+                    </div>
+                  )}
+                  {p.author?.role === "ADMIN" && <span className="chip mt-1 border-accent-text/50 text-accent-text">Staff</span>}
                 </div>
               </aside>
               <div className="min-w-0 p-4">

@@ -11,7 +11,7 @@ import { formatDate, timeAgo } from "@/lib/utils";
 import { unlinkPsn } from "@/actions/account";
 import { Avatar, Notice, PageHeader, ProgressBar } from "@/components/ui";
 import { ConfirmButton } from "@/components/client";
-import { DeleteAccountForm, LinkPsnForm, PrivacyForm, ProfileForm, SyncButton, ThemeForm, VerifyPsnButton } from "./forms";
+import { DeleteAccountForm, LinkPsnForm, PrivacyForm, ProfileForm, SyncButton, ThemeForm, VaultForm, VerifyPsnButton } from "./forms";
 
 export const metadata: Metadata = { title: "Settings", robots: { index: false } };
 
@@ -23,6 +23,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     prisma.syncJob.findMany({ where: { userId: user.id }, orderBy: { startedAt: "desc" }, take: 5 }),
     psn?.verified ? nextManualSyncAt(user.id, user.plan) : null,
     psn?.verified ? prisma.psnTitleSync.count({ where: { userId: user.id } }) : 0,
+  ]);
+  const [myGames, vaultOptions, vault] = await Promise.all([
+    prisma.userGame.findMany({ where: { userId: user.id }, orderBy: { game: { title: "asc" } }, select: { game: { select: { id: true, title: true } } } }),
+    // Candidates for the Trophy Vault: the member's rarest earned trophies.
+    prisma.userTrophy.findMany({
+      where: { userId: user.id },
+      orderBy: { trophy: { earnedRate: { sort: "asc", nulls: "last" } } },
+      take: 100,
+      select: { trophy: { select: { id: true, name: true, type: true, earnedRate: true, game: { select: { title: true } } } } },
+    }),
+    prisma.vaultTrophy.findMany({ where: { userId: user.id }, orderBy: { position: "asc" }, select: { trophyId: true } }),
   ]);
   const demo = isDemoMode();
   const plan = planOf(user);
@@ -191,7 +202,26 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Section>
 
         <Section title="Profile">
-          <ProfileForm bio={user.bio ?? ""} country={user.country ?? ""} />
+          <ProfileForm
+            values={{
+              bio: user.bio ?? "",
+              country: user.country ?? "",
+              youtubeUrl: user.youtubeUrl ?? "",
+              twitchUrl: user.twitchUrl ?? "",
+              streamUrl: user.streamUrl ?? "",
+              profileAccent: user.profileAccent,
+              bannerGameId: user.bannerGameId ?? "",
+              allowMessages: user.allowMessages,
+            }}
+            games={myGames.map((g) => g.game)}
+          />
+        </Section>
+
+        <Section id="vault" title="The Trophy Vault">
+          <VaultForm
+            options={vaultOptions.map(({ trophy: t }) => ({ id: t.id, name: t.name, game: t.game.title, type: t.type, rate: t.earnedRate }))}
+            picked={vault.map((v) => v.trophyId)}
+          />
         </Section>
 
         <Section title="Privacy">

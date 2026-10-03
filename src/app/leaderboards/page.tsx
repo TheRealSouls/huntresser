@@ -10,6 +10,7 @@ import {
   PERIODS,
   SCOPES,
   usesPsnTotals,
+  viewerRanks,
   type Metric,
   type Period,
   type Scope,
@@ -49,9 +50,10 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
   const requested = sp.country?.toUpperCase();
   const country = requested && /^[A-Z]{2}$/.test(requested) ? requested : (user?.country ?? "GB");
 
-  const [rows, trackedCount] = await Promise.all([
+  const [rows, trackedCount, myRanks] = await Promise.all([
     getLeaderboard({ metric, period, scope, country, viewerId: user?.id }),
     prisma.psnPlayer.count({ where: { hidden: false, trophiesPrivate: false, ...(scope === "country" ? { country } : {}) } }),
+    user ? viewerRanks(user) : null,
   ]);
   const psnTotals = usesPsnTotals({ metric, period, scope });
 
@@ -80,6 +82,52 @@ export default async function LeaderboardsPage({ searchParams }: { searchParams:
         {scope === "country" && ` in ${countryName(country)}`}
         {scope === "friends" && " among you and your friends"}.
       </PageHeader>
+
+      {user && (
+        <section className="card mb-6 p-4" aria-label="Your rank">
+          {myRanks ? (
+            <dl className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <dt className="label">Your global rank</dt>
+                <dd className="text-2xl font-bold tabular-nums">
+                  #{formatNumber(myRanks.global.rank)}
+                  <span className="ml-2 text-sm font-normal text-muted">of {formatNumber(myRanks.global.of)}</span>
+                </dd>
+              </div>
+              <div>
+                <dt className="label">
+                  Your rank in {myRanks.country ? `${flag(myRanks.country.code)} ${countryName(myRanks.country.code)}` : "your country"}
+                </dt>
+                <dd className="text-2xl font-bold tabular-nums">
+                  {myRanks.country ? (
+                    <>
+                      #{formatNumber(myRanks.country.rank)}
+                      <span className="ml-2 text-sm font-normal text-muted">of {formatNumber(myRanks.country.of)}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-normal text-muted">
+                      Set your country in <Link href="/settings" className="link">Settings</Link>
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="label">Your trophy points</dt>
+                <dd className="text-2xl font-bold tabular-nums">{formatNumber(myRanks.points)}</dd>
+              </div>
+              <p className="text-xs text-muted sm:col-span-3">Ranked on all-time trophy points among the players TrophyPilot tracks.</p>
+            </dl>
+          ) : (
+            <p className="text-sm text-muted">
+              You&apos;re not ranked yet.{" "}
+              <Link href="/settings#psn" className="link">
+                Link and sync your PSN account
+              </Link>{" "}
+              to see your global and country rank here.
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="card mb-6 space-y-4 p-4">
         <Group label="Scope">

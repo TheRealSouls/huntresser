@@ -6,7 +6,7 @@ import { SubmitButton, useKeepValuesAction } from "@/components/client";
 import { FormMessage } from "@/components/ui";
 import { GamePicker, type PickedGame } from "@/components/GamePicker";
 
-type TrophyOption = { id: string; name: string; type: string; hidden: boolean };
+type TrophyOption = { id: string; name: string; description: string; type: string; hidden: boolean };
 type Step = { key: number; kind: string; title: string; body: string; trophyId: string; video: string };
 
 const KINDS = [
@@ -25,12 +25,15 @@ export function GuideEditor({ initialGame }: { initialGame?: PickedGame | null }
   const [trophies, setTrophies] = useState<TrophyOption[]>([]);
   const [trophyNote, setTrophyNote] = useState<string | null>(null);
   const [steps, setSteps] = useState<Step[]>([blank()]);
+  // How to earn each trophy, keyed by trophy id. Blank ones are left out of the guide.
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   // Trophies of the chosen list, for linking steps. PSN-imported games load their list on first use.
   useEffect(() => {
     setTrophies([]);
     setTrophyNote(null);
     setSteps((s) => s.map((x) => ({ ...x, trophyId: "" })));
+    setNotes({});
     if (!game) return;
     const ctrl = new AbortController();
     setTrophyNote("Loading trophies…");
@@ -129,7 +132,8 @@ export function GuideEditor({ initialGame }: { initialGame?: PickedGame | null }
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">Steps</h2>
+        <h2 className="text-xl font-bold">Roadmap and steps</h2>
+        <p className="text-sm text-muted">The big picture: the order to do things in, what can be missed, where the collectibles are.</p>
         {steps.map((s, i) => (
           <fieldset key={s.key} className="card space-y-3 p-5">
             <legend className="sr-only">Step {i + 1}</legend>
@@ -215,18 +219,62 @@ export function GuideEditor({ initialGame }: { initialGame?: PickedGame | null }
         </div>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold">Trophy by trophy</h2>
+        {trophies.length === 0 ? (
+          <p className="text-sm text-muted">{game ? (trophyNote ?? "No trophy list for this game yet.") : "Pick a game above and its trophies are listed here."}</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted">
+              Optional. Say how to earn each trophy: where, when, and any trick to it. Leave one blank and it&apos;s left out of the guide.
+              {" "}
+              {Object.values(notes).filter((n) => n.trim()).length} of {trophies.length} written.
+            </p>
+            <ul className="card divide-y divide-line">
+              {trophies.map((t) => (
+                <li key={t.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,280px)_1fr]">
+                  <div className="min-w-0">
+                    <div className="font-semibold">
+                      {t.name}
+                      {t.hidden && <span className="ml-2 chip">Hidden</span>}
+                    </div>
+                    <div className="text-xs capitalize text-muted">{t.type.toLowerCase()}</div>
+                    <div className="mt-1 text-xs text-muted">{t.description}</div>
+                  </div>
+                  <textarea
+                    value={notes[t.id] ?? ""}
+                    onChange={(e) => setNotes((n) => ({ ...n, [t.id]: e.target.value }))}
+                    rows={3}
+                    maxLength={4000}
+                    placeholder="How to earn it…"
+                    className="input"
+                    aria-label={`How to earn ${t.name}`}
+                  />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
       <input
         type="hidden"
         name="steps"
-        value={JSON.stringify(
-          steps.map(({ kind, title, body, trophyId, video }) => ({
-            kind,
-            title,
-            body,
-            trophyId: trophyId || null,
-            video: video || null,
-          })),
-        )}
+        value={JSON.stringify([
+          // A roadmap step left completely empty is dropped, so a trophy-by-trophy guide doesn't need one.
+          ...steps
+            .filter((s) => s.title.trim() || s.body.trim())
+            .map(({ kind, title, body, trophyId, video }) => ({
+              kind,
+              title,
+              body,
+              trophyId: trophyId || null,
+              video: video || null,
+            })),
+          ...trophies
+            .filter((t) => (notes[t.id] ?? "").trim())
+            .map((t) => ({ kind: "TROPHY", title: t.name, body: notes[t.id].trim(), trophyId: t.id, video: null })),
+        ])}
       />
       <FormMessage state={state} />
       <SubmitButton className="btn-primary px-6 py-3" pending={pending} pendingText="Publishing…">

@@ -10,11 +10,13 @@ import { formatDate, timeAgo } from "@/lib/utils";
 import { GameArt } from "@/components/art";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { Avatar, EmptyState, ProgressBar, RarityBadge, SectionTitle, TabLinks } from "@/components/ui";
+import { LocalTime } from "@/components/LocalTime";
+import { accentClass } from "@/lib/profile-themes";
 import { ProfileHeader } from "./ProfileHeader";
 import { loadProfile } from "./profile-data";
 
 type Params = { username: string };
-type Search = { tab?: string; sort?: string };
+type Search = { tab?: string; sort?: string; platform?: string; show?: string };
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username } = await params;
@@ -25,19 +27,21 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 export default async function ProfilePage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
   const { username } = await params;
-  const { tab = "games", sort = "recent" } = await searchParams;
+  const { tab = "games", sort = "recent", platform = "", show = "" } = await searchParams;
   const { owner, viewerId, canView, relation } = await loadProfile(username);
+  // The member's chosen accent colour applies to their whole profile page.
+  const accent = accentClass(owner.profileAccent);
 
   if (!canView) {
     return (
-      <>
+      <div className={accent}>
         <ProfileHeader owner={owner} stats={null} relation={relation} viewerId={viewerId} />
         <EmptyState title={owner.profileVisibility === "FRIENDS" ? "This profile is friends-only" : "This profile is private"}>
           {owner.profileVisibility === "FRIENDS"
             ? `Become friends with ${owner.username} to see their trophies.`
             : `${owner.username} keeps their trophy collection to themselves.`}
         </EmptyState>
-      </>
+      </div>
     );
   }
 
@@ -46,13 +50,16 @@ export default async function ProfilePage({ params, searchParams }: { params: Pr
   const tabs = [
     { key: "games", label: `Games (${stats.games})`, href: base },
     { key: "platinums", label: `Platinums (${stats.platinum})`, href: `${base}?tab=platinums` },
+    { key: "log", label: "Trophy log", href: `${base}?tab=log` },
     { key: "milestones", label: "Milestones", href: `${base}?tab=milestones` },
+    { key: "saved", label: "Saved guides", href: `${base}?tab=saved` },
     { key: "friends", label: "Friends", href: `${base}?tab=friends` },
   ];
 
   return (
-    <>
+    <div className={accent}>
       <ProfileHeader owner={owner} stats={stats} relation={relation} viewerId={viewerId} />
+      <TrophyVault userId={owner.id} isOwner={relation === "SELF"} />
       {!owner.psn?.verified && relation === "SELF" && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-accent/50 bg-accent/10 px-4 py-3">
           <span className="text-sm">Link your PSN account to import your trophies.</span>
@@ -63,14 +70,168 @@ export default async function ProfilePage({ params, searchParams }: { params: Pr
         <TabLinks tabs={tabs} active={tab} />
       </div>
       {tab === "platinums" && <PlatinumTracker userId={owner.id} username={owner.username} />}
+      {tab === "log" && <TrophyLog userId={owner.id} isOwner={relation === "SELF"} />}
       {tab === "milestones" && <Milestones userId={owner.id} stats={stats} />}
+      {tab === "saved" && <SavedGuides userId={owner.id} isOwner={relation === "SELF"} />}
       {tab === "friends" && <FriendsTab userId={owner.id} />}
-      {tab === "games" && <GamesTab userId={owner.id} username={owner.username} sort={sort} />}
-    </>
+      {tab === "games" && <GamesTab userId={owner.id} username={owner.username} sort={sort} platform={platform} show={show} />}
+    </div>
   );
 }
 
-async function GamesTab({ userId, username, sort }: { userId: string; username: string; sort: string }) {
+/** The five trophies a member chose to show off. */
+async function TrophyVault({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+  const vault = await prisma.vaultTrophy.findMany({
+    where: { userId },
+    orderBy: { position: "asc" },
+    include: { trophy: { include: { game: { select: { title: true, slug: true } } } } },
+  });
+  if (!vault.length && !isOwner) return null;
+  return (
+    <section className="card mb-8 p-5" aria-labelledby="vault-title">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 id="vault-title" className="text-sm font-bold uppercase tracking-wide">The Trophy Vault</h2>
+        {isOwner && (
+          <Link href="/settings#vault" className="link text-sm">
+            {vault.length ? "Change" : "Pick your five"}
+          </Link>
+        )}
+      </div>
+      {vault.length === 0 ? (
+        <p className="text-sm text-muted">Show off your five best trophies here. Pick them in Settings.</p>
+      ) : (
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {vault.map(({ trophy: t }) => (
+            <li key={t.id}>
+              <Link
+                href={t.slug ? trophyHref(t.game.slug, t.slug) : `/trophies/${t.id}`}
+                className="flex h-full flex-col items-center gap-2 rounded-lg border border-line p-3 text-center hover:border-muted"
+              >
+                {t.iconUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={t.iconUrl.replace(/^http:/, "https:")}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="h-16 w-16 rounded-md border border-line bg-surface-2 object-contain"
+                  />
+                ) : (
+                  <TrophyIcon type={t.type} size={48} />
+                )}
+                <span className="line-clamp-2 text-sm font-semibold">{t.name}</span>
+                <span className="line-clamp-1 text-xs text-muted">{t.game.title}</span>
+                <span className="mt-auto flex items-center gap-1.5">
+                  <TrophyIcon type={t.type} size={16} />
+                  <RarityBadge rate={t.earnedRate} />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+/** The last 50 trophies earned, with the exact time each one popped. */
+async function TrophyLog({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+  const log = await prisma.userTrophy.findMany({
+    where: { userId },
+    orderBy: { earnedAt: "desc" },
+    take: 50,
+    include: { trophy: { include: { game: { select: { title: true, slug: true, coverHue: true, iconUrl: true } } } } },
+  });
+  if (!log.length) return <EmptyState title="No trophies logged yet">Earned trophies show up here after a sync.</EmptyState>;
+  return (
+    <section>
+      <SectionTitle>Last {log.length} trophies earned</SectionTitle>
+      <ol className="card divide-y divide-line">
+        {log.map(({ id, earnedAt, trophy: t }) => {
+          // Hidden trophies stay hidden for visitors who might not have them.
+          const secret = t.hidden && !isOwner;
+          return (
+            <li key={id} className="flex items-center gap-3 px-4 py-3">
+              <GameArt title={t.game.title} hue={t.game.coverHue} iconUrl={t.game.iconUrl} size="sm" className="w-10" />
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={t.slug ? trophyHref(t.game.slug, t.slug) : `/trophies/${t.id}`}
+                  className="block truncate font-semibold hover:underline hover:underline-offset-4"
+                >
+                  {secret ? "Hidden trophy" : t.name}
+                </Link>
+                <div className="truncate text-xs text-muted">
+                  {t.game.title} · <LocalTime date={earnedAt} seconds />
+                </div>
+              </div>
+              <RarityBadge rate={t.earnedRate} />
+              <TrophyIcon type={t.type} size={26} />
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/** Guides the member saved to their favourites. */
+async function SavedGuides({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+  const saved = await prisma.guideFavourite.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: { guide: { include: { game: { select: { title: true, coverHue: true, iconUrl: true } }, author: { select: { username: true } } } } },
+  });
+  if (!saved.length) {
+    return (
+      <EmptyState title="No saved guides yet" action={isOwner ? <Link href="/guides" className="btn-ghost">Browse guides</Link> : undefined}>
+        {isOwner ? "Open a guide and press Add to favourites. It will be kept here." : "Guides this member saves show up here."}
+      </EmptyState>
+    );
+  }
+  return (
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {saved.map(({ guide: g }) => (
+        <li key={g.id}>
+          <Link href={`/guides/${g.slug}`} className="card flex gap-4 p-4 hover:border-muted">
+            <GameArt title={g.game.title} hue={g.game.coverHue} iconUrl={g.game.iconUrl} size="sm" className="w-14 self-start" />
+            <div className="min-w-0">
+              <div className="font-semibold">{g.title}</div>
+              <div className="line-clamp-2 text-sm text-muted">{g.summary}</div>
+              <div className="mt-1 text-xs text-faint">
+                {g.game.title} · by {g.author.username}
+              </div>
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const SHOW = {
+  "": "All games",
+  complete: "100% complete",
+  incomplete: "Not 100%",
+  platinum: "Platinum",
+  platnot100: "Platinum, not 100%",
+} as const;
+const PLATFORMS = ["PS5", "PS4", "PS3", "PSVITA"];
+
+async function GamesTab({ userId, username, sort, platform, show }: { userId: string; username: string; sort: string; platform: string; show: string }) {
+  const where = {
+    userId,
+    ...(PLATFORMS.includes(platform) ? { game: { platforms: { contains: platform } } } : {}),
+    ...(show === "complete"
+      ? { completedAt: { not: null } }
+      : show === "incomplete"
+        ? { completedAt: null }
+        : show === "platinum"
+          ? { hasPlatinum: true }
+          : show === "platnot100"
+            ? { hasPlatinum: true, completedAt: null }
+            : {}),
+  };
+  const total = await prisma.userGame.count({ where: { userId } });
   const orderBy =
     sort === "progress"
       ? [{ progress: "desc" as const }, { lastEarned: { sort: "desc" as const, nulls: "last" as const } }]
@@ -78,27 +239,58 @@ async function GamesTab({ userId, username, sort }: { userId: string; username: 
         ? { game: { title: "asc" as const } }
         : { lastEarned: { sort: "desc" as const, nulls: "last" as const } };
   const games = await prisma.userGame.findMany({
-    where: { userId },
+    where,
     orderBy,
     include: { game: { include: { _count: { select: { trophies: true } } } } },
   });
-  if (!games.length) return <EmptyState title="No games synced yet">Once the PSN account is synced, games show up here.</EmptyState>;
+  if (!total) return <EmptyState title="No games synced yet">Once the PSN account is synced, games show up here.</EmptyState>;
 
   const sorts = [
-    ["recent", "Recently played"],
-    ["progress", "Completion"],
+    ["recent", "Last played"],
     ["title", "A to Z"],
+    ["progress", "Percent complete"],
   ];
+  // Every filter link keeps the other two choices.
+  const href = (o: { sort?: string; platform?: string; show?: string }) => {
+    const p = new URLSearchParams(
+      Object.entries({ sort, platform, show, ...o }).filter(([k, v]) => v && !(k === "sort" && v === "recent")) as [string, string][],
+    );
+    const q = p.toString();
+    return `/u/${username}${q ? `?${q}` : ""}`;
+  };
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2 text-sm">
-        <span className="text-muted">Sort:</span>
-        {sorts.map(([k, l]) => (
-          <Link key={k} href={`/u/${username}?sort=${k}`} scroll={false} className={clsx("chip", sort === k && "chip-active")}>
-            {l}
-          </Link>
-        ))}
+      <div className="card mb-4 space-y-3 p-4 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-20 text-xs font-semibold uppercase tracking-wider text-muted">Platform</span>
+          <Link href={href({ platform: "" })} scroll={false} className={clsx("chip", !PLATFORMS.includes(platform) && "chip-active")}>All</Link>
+          {PLATFORMS.map((p) => (
+            <Link key={p} href={href({ platform: p })} scroll={false} className={clsx("chip", platform === p && "chip-active")}>
+              {p === "PSVITA" ? "PS Vita" : p}
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-20 text-xs font-semibold uppercase tracking-wider text-muted">Show</span>
+          {Object.entries(SHOW).map(([k, l]) => (
+            <Link key={k} href={href({ show: k })} scroll={false} className={clsx("chip", (show in SHOW ? show : "") === k && "chip-active")}>
+              {l}
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-20 text-xs font-semibold uppercase tracking-wider text-muted">Order by</span>
+          {sorts.map(([k, l]) => (
+            <Link key={k} href={href({ sort: k })} scroll={false} className={clsx("chip", sort === k && "chip-active")}>
+              {l}
+            </Link>
+          ))}
+          <span className="ml-auto text-xs text-muted">
+            {games.length} of {total} games
+          </span>
+        </div>
       </div>
+      {games.length === 0 && <EmptyState title="No games match these filters" action={<Link href={`/u/${username}`} className="btn-ghost">Clear filters</Link>} />}
       <ul className="space-y-2.5">
         {games.map((ug) => (
           <li key={ug.id}>

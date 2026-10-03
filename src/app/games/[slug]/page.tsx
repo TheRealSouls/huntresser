@@ -2,20 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import clsx from "clsx";
 import { prisma } from "@/lib/db";
-import { getSessionUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { flag } from "@/lib/countries";
 import { after } from "next/server";
+import { recentPlayers } from "@/lib/activity";
+import { isAdmin } from "@/lib/forum";
 import { siblingLists } from "@/lib/games";
 import { probeSiblings } from "@/lib/psn/siblings";
 import { enrichGame, igdbEnabled } from "@/lib/igdb";
 import { isDemoMode } from "@/lib/psn/sync";
 import { formatDate, parseJsonArray, timeAgo } from "@/lib/utils";
+import { setNowPlaying } from "@/actions/games";
 import { GameArt, SceneArt } from "@/components/art";
+import { RevealAllButton, SpoilerGroup } from "@/components/client";
 import { TrophyList } from "@/components/TrophyList";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { YouTube } from "@/components/YouTube";
 import { Avatar, DifficultyMeter, Notice, ProgressBar, SectionTitle, Stat, StatGrid } from "@/components/ui";
 import { loadGame } from "./data";
+import { RateGameForm, UnobtainableForm } from "./forms";
 
 type Params = { slug: string };
 
@@ -34,30 +39,29 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
+const UNOBTAINABLE = {
+  PLATINUM: { short: "Platinum unobtainable", long: "The platinum can't be earned any more." },
+  COMPLETION: { short: "100% unobtainable", long: "The platinum can still be earned, but 100% can't." },
+} as const;
+
 export default async function GamePage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ sort?: string }> }) {
   const { slug } = await params;
   const { sort = "default" } = await searchParams;
   const game = await loadGame(slug);
-  const viewerId = await getSessionUserId();
+  const viewer = await getCurrentUser();
+  const viewerId = viewer?.id ?? null;
+  const lists = await siblingLists(game);
+  const familyIds = lists.length ? lists.map((l) => l.id) : [game.id];
 
   const family = game.titleKey ? { game: { titleKey: game.titleKey } } : { gameId: game.id };
-  const [guides, myProgress, myTrophies, platEarners, sessions, threads] = await Promise.all([
+  const [guides, myProgress, myTrophies, players, sessions, threads, myRating, playingNow, difficultyVotes] = await Promise.all([
     // Guides written on another platform's list count for this one too.
-    prisma.guide.findMany({
-      where: game.titleKey ? { game: { titleKey: game.titleKey } } : { gameId: game.id },
-      orderBy: { views: "desc" },
-      include: { author: true },
-    }),
+    prisma.guide.findMany({ where: family, orderBy: { views: "desc" }, include: { author: true } }),
     viewerId ? prisma.userGame.findUnique({ where: { userId_gameId: { userId: viewerId, gameId: game.id } } }) : null,
     viewerId
       ? prisma.userTrophy.findMany({ where: { userId: viewerId, trophy: { gameId: game.id } }, select: { trophyId: true, earnedAt: true } })
       : [],
-    prisma.userGame.findMany({
-      where: { gameId: game.id, hasPlatinum: true, user: { profileVisibility: "PUBLIC", showActivity: true } },
-      orderBy: { platinumAt: "desc" },
-      take: 6,
-      include: { user: { include: { psn: true } } },
-    }),
+    recentPlayers(game.id, 8),
     prisma.session.findMany({
       where: { gameId: game.id, startsAt: { gte: new Date() } },
       orderBy: { startsAt: "asc" },
@@ -66,16 +70,31 @@ export default async function GamePage({ params, searchParams }: { params: Promi
     }),
     // Forum threads about this game, on any of its trophy lists.
     prisma.forumThread.findMany({ where: family, orderBy: { lastPostAt: "desc" }, take: 5 }),
+    viewerId ? prisma.gameRating.findUnique({ where: { userId_gameId: { userId: viewerId, gameId: game.id } } }) : null,
+    // Members who set "Playing now" on any of this game's lists.
+    prisma.user.findMany({
+      where: { nowPlayingGameId: { in: familyIds }, nowPlayingUntil: { gt: new Date() }, profileVisibility: "PUBLIC" },
+      orderBy: { nowPlayingUntil: "desc" },
+      take: 12,
+      select: { id: true, username: true, avatarHue: true, country: true, psn: { select: { onlineId: true, avatarUrl: true } } },
+    }),
+    prisma.gameRating.count({ where: { gameId: { in: familyIds }, difficulty: { not: null } } }),
   ]);
-  const estimateSource =
-    guides.length > 0 ? `From ${guides.length} guide${guides.length === 1 ? "" : "s"}` : game.difficulty == null ? "Needs a guide" : undefined;
+
+  const votes = guides.length + difficultyVotes;
+  const difficultySource = votes > 0 ? `From ${votes} rating${votes === 1 ? "" : "s"}` : game.difficulty == null ? "Not rated yet" : undefined;
+  const guideSource =
+    guides.length > 0 ? `From ${guides.length} guide${guides.length === 1 ? "" : "s"}` : game.hoursToPlatinum == null ? "Needs a guide" : undefined;
 
   const plat = game.trophies.find((t) => t.type === "PLATINUM");
   const counts = (type: string) => game.trophies.filter((t) => t.type === type).length;
   const earned = viewerId && myProgress ? new Map(myTrophies.map((r) => [r.trophyId, r.earnedAt])) : undefined;
+  const hiddenLeft = game.trophies.filter((t) => t.hidden && !earned?.has(t.id)).length;
   const shots = parseJsonArray(game.screenshots);
   const dlcs = game.groups.filter((g) => g.isDlc);
-  const lists = await siblingLists(game);
+  const iAmPlaying = playingNow.some((u) => u.id === viewerId);
+  const unob = game.unobtainable === "PLATINUM" || game.unobtainable === "COMPLETION" ? UNOBTAINABLE[game.unobtainable] : null;
+
   // Look for this game's other trophy lists (PS5, other regions) once, after the page is sent.
   if (!isDemoMode() && !game.siblingsProbedAt) {
     after(() => probeSiblings(game.id).catch((err) => console.error("[siblings]", err)));
@@ -96,7 +115,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   return (
     <div>
       {/* Header */}
-      <section className="mb-8 border border-line bg-surface">
+      <section className="card mb-8">
         <div className="grid gap-6 p-5 sm:p-7 md:grid-cols-[180px_1fr]">
           <GameArt title={game.title} hue={game.coverHue} iconUrl={game.iconUrl} size="lg" className="w-36 md:w-full" />
           <div>
@@ -106,13 +125,13 @@ export default async function GamePage({ params, searchParams }: { params: Promi
               ))}
               {game.genre && <span className="chip">{game.genre}</span>}
               {game.hasOnlineTrophies && <span className="chip border-rare/50 text-rare">Online trophies</span>}
+              {unob && <span className="chip border-bad/50 text-bad">{unob.short}</span>}
             </div>
             <h1 className="mt-3 break-words text-2xl font-bold tracking-tight sm:text-3xl">{game.title}</h1>
             <p className="mt-1 text-sm text-muted">
               {[game.developer, game.publisher !== game.developer ? game.publisher : null].filter(Boolean).join(" · ")}
               {game.releaseDate && <> · Released {formatDate(game.releaseDate)}</>}
             </p>
-            {game.description && <p className="mt-4 max-w-2xl text-sm leading-relaxed text-text/90">{game.description}</p>}
             <div className="mt-5 flex flex-wrap items-center gap-5">
               <div className="flex items-center gap-3 text-sm font-semibold">
                 {(["PLATINUM", "GOLD", "SILVER", "BRONZE"] as const).map((t) =>
@@ -126,7 +145,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
               <span className="text-sm text-muted">{game.trophies.length} trophies · {game._count.userGames} members playing</span>
             </div>
             {myProgress && (
-              <div className="mt-5 max-w-md border border-line bg-bg p-3">
+              <div className="mt-5 max-w-md rounded-lg border border-line bg-bg p-3">
                 <div className="mb-1.5 flex justify-between text-sm">
                   <span className="font-semibold">Your progress</span>
                   <span className="tabular-nums">{myProgress.progress}%</span>
@@ -134,9 +153,23 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                 <ProgressBar value={myProgress.progress} label="Your completion" />
               </div>
             )}
+            {viewerId && (
+              <form action={setNowPlaying} className="mt-5">
+                {!iAmPlaying && <input type="hidden" name="gameId" value={game.id} />}
+                <button className={iAmPlaying ? "btn-primary" : "btn-ghost"}>
+                  {iAmPlaying ? "Playing now · stop" : "I'm playing this now"}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </section>
+
+      {unob && (
+        <Notice tone="bad" className="mb-8">
+          <strong>{unob.long}</strong> {game.unobtainableReason}
+        </Notice>
+      )}
 
       {lists.length > 1 && (
         <section className="mb-8" aria-label="Trophy lists">
@@ -150,7 +183,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                 key={l.id}
                 href={`/games/${l.slug}`}
                 aria-current={l.current ? "page" : undefined}
-                className={clsx("border px-3 py-1.5 text-xs", l.current ? "border-accent-text text-text" : "border-line text-muted hover:border-muted hover:text-text")}
+                className={clsx("rounded-lg border px-3 py-1.5 text-xs", l.current ? "border-accent-text text-text" : "border-line text-muted hover:border-muted hover:text-text")}
               >
                 <span className="font-semibold">{listLabels[i]}</span>
                 <span className="ml-2 text-faint">
@@ -165,87 +198,108 @@ export default async function GamePage({ params, searchParams }: { params: Promi
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-10">
-          {/* Estimates */}
-          <StatGrid className="grid-cols-2 xl:grid-cols-4">
-            <Stat label="Difficulty" value={<span className="text-sm"><DifficultyMeter value={game.difficulty} /></span>} sub={estimateSource} />
-            <Stat label="Time to platinum" value={game.hoursToPlatinum ? `~${game.hoursToPlatinum}h` : "n/a"} sub={estimateSource} />
-            <Stat label="Playthroughs" value={game.playthroughs ?? "n/a"} sub={estimateSource} />
+          {/* Estimates and status */}
+          <StatGrid className="grid-cols-2 md:grid-cols-3">
+            <Stat label="Difficulty" value={<span className="text-sm"><DifficultyMeter value={game.difficulty} /></span>} sub={difficultySource} />
+            <Stat
+              label="Obtainable"
+              value={<span className={clsx("text-base", unob ? "text-bad" : "text-good")}>{unob ? unob.short : "Platinum and 100%"}</span>}
+              sub={unob ? (game.unobtainableReason ?? undefined) : undefined}
+            />
+            <Stat
+              label="Game rating"
+              value={game.rating != null ? `${game.rating.toFixed(1)} / 5` : "n/a"}
+              sub={game.ratingCount ? `From ${game.ratingCount} member${game.ratingCount === 1 ? "" : "s"}` : "Not rated yet"}
+            />
+            <Stat label="Time to platinum" value={game.hoursToPlatinum ? `~${game.hoursToPlatinum}h` : "n/a"} sub={guideSource} />
+            <Stat label="Playthroughs" value={game.playthroughs ?? "n/a"} sub={guideSource} />
             <Stat
               label="Platinum rate"
               value={!plat ? "No platinum" : plat.earnedRate != null ? `${plat.earnedRate.toFixed(1)}%` : "n/a"}
             />
           </StatGrid>
 
-          {(shots.length > 0 || game.trailerYoutubeId) && (
-          <section>
-            <SectionTitle>Screenshots and trailer</SectionTitle>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {game.trailerYoutubeId ? (
-                <div className="sm:col-span-2">
-                  <YouTube id={game.trailerYoutubeId} title={`${game.title} trailer`} />
-                </div>
-              ) : null}
-              {shots.map((s) =>
-                s.startsWith("art:") ? (
-                  <SceneArt key={s} seed={`${game.slug}-${s}`} hue={game.coverHue} />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={s}
-                    src={s}
-                    alt={`${game.title} screenshot`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    className="aspect-video w-full border border-line bg-surface-2 object-cover"
-                  />
-                ),
-              )}
-            </div>
-            {game.igdbId && (
-              <p className="mt-2 text-xs text-faint">
-                Release date, description, screenshots and trailer from{" "}
-                <a href="https://www.igdb.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-text">
-                  IGDB
-                </a>
-                .
-              </p>
-            )}
-          </section>
-          )}
-
           {/* Trophy list */}
-          <section>
-            <SectionTitle
-              action={
-                <div className="flex gap-1.5 text-sm">
-                  {[
-                    ["default", "Default"],
-                    ["rarity", "Rarest"],
-                    ["type", "Grade"],
-                  ].map(([k, l]) => (
-                    <Link key={k} href={`/games/${game.slug}?sort=${k}`} scroll={false} className={clsx("chip", sort === k && "chip-active")}>
-                      {l}
-                    </Link>
-                  ))}
-                </div>
-              }
-            >
-              Trophy list
-            </SectionTitle>
-            {game.trophyError && <Notice tone="bad">{game.trophyError}</Notice>}
-            {!game.trophyError && game.trophies.length === 0 && <p className="text-sm text-muted">No trophy list is available for this game yet.</p>}
-            <TrophyList gameSlug={game.slug} groups={game.groups} trophies={game.trophies} earned={earned} sort={sort as "default" | "rarity" | "type"} />
-          </section>
+          <SpoilerGroup>
+            <section>
+              <SectionTitle
+                action={
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 text-sm">
+                    {hiddenLeft > 0 && <RevealAllButton count={hiddenLeft} className="chip hover:text-text" />}
+                    {[
+                      ["default", "Default"],
+                      ["rarity", "Rarest"],
+                      ["type", "Grade"],
+                    ].map(([k, l]) => (
+                      <Link key={k} href={`/games/${game.slug}?sort=${k}`} scroll={false} className={clsx("chip", sort === k && "chip-active")}>
+                        {l}
+                      </Link>
+                    ))}
+                  </div>
+                }
+              >
+                Trophy list
+              </SectionTitle>
+              {game.trophyError && <Notice tone="bad">{game.trophyError}</Notice>}
+              {!game.trophyError && game.trophies.length === 0 && <p className="text-sm text-muted">No trophy list is available for this game yet.</p>}
+              <TrophyList gameSlug={game.slug} groups={game.groups} trophies={game.trophies} earned={earned} sort={sort as "default" | "rarity" | "type"} />
+            </section>
+          </SpoilerGroup>
+
+          {/* Screenshots and trailer, after the trophies */}
+          {(shots.length > 0 || game.trailerYoutubeId) && (
+            <section>
+              <SectionTitle>Screenshots and trailer</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {game.trailerYoutubeId ? (
+                  <div className="sm:col-span-2">
+                    <YouTube id={game.trailerYoutubeId} title={`${game.title} trailer`} />
+                  </div>
+                ) : null}
+                {shots.map((s) =>
+                  s.startsWith("art:") ? (
+                    <SceneArt key={s} seed={`${game.slug}-${s}`} hue={game.coverHue} />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={s}
+                      src={s}
+                      alt={`${game.title} screenshot`}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="aspect-video w-full rounded-lg border border-line bg-surface-2 object-cover"
+                    />
+                  ),
+                )}
+              </div>
+              {game.igdbId && (
+                <p className="mt-2 text-xs text-faint">
+                  Release date, description, screenshots and trailer from{" "}
+                  <a href="https://www.igdb.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-text">
+                    IGDB
+                  </a>
+                  .
+                </p>
+              )}
+            </section>
+          )}
         </div>
 
         {/* Sidebar */}
         <aside className="space-y-6">
+          {game.description && (
+            <section className="card p-5">
+              <h2 className="mb-2 font-bold">About the game</h2>
+              <p className="text-sm leading-relaxed text-muted">{game.description}</p>
+            </section>
+          )}
+
           <section className="card p-5">
             <h2 className="mb-3 font-bold">Guides</h2>
             <ul className="space-y-3">
               {guides.map((g) => (
                 <li key={g.id}>
-                  <Link href={`/guides/${g.slug}`} className="block border border-line p-3 hover:border-muted">
+                  <Link href={`/guides/${g.slug}`} className="block rounded-lg border border-line p-3 hover:border-muted">
                     <div className="font-semibold">{g.title}</div>
                     <div className="text-xs text-muted">
                       by {g.author.username} · {g.playthroughs} playthrough{g.playthroughs > 1 ? "s" : ""} · {g.missableCount} missables
@@ -259,11 +313,43 @@ export default async function GamePage({ params, searchParams }: { params: Promi
           </section>
 
           <section className="card p-5">
+            <h2 className="mb-1 font-bold">Rate this game</h2>
+            {viewerId ? (
+              <>
+                <p className="mb-3 text-xs text-muted">Your rating counts towards the difficulty and game rating above.</p>
+                <RateGameForm gameId={game.id} difficulty={myRating?.difficulty ?? null} rating={myRating?.rating ?? null} />
+              </>
+            ) : (
+              <p className="text-sm text-muted">
+                <Link href={`/login?next=/games/${game.slug}`} className="link">Log in</Link> to rate the difficulty and the game.
+              </p>
+            )}
+          </section>
+
+          {playingNow.length > 0 && (
+            <section className="card p-5">
+              <h2 className="mb-3 font-bold">Playing now</h2>
+              <ul className="space-y-2.5">
+                {playingNow.map((u) => (
+                  <li key={u.id} className="flex items-center gap-2.5 text-sm">
+                    <Avatar name={u.psn?.onlineId ?? u.username} hue={u.avatarHue} url={u.psn?.avatarUrl} size={28} />
+                    <Link href={`/u/${u.username}`} className="flex-1 truncate font-semibold hover:underline hover:underline-offset-4">
+                      {u.psn?.onlineId ?? u.username} <span className="text-xs">{flag(u.country)}</span>
+                    </Link>
+                    <span className="chip border-good/50 text-good">Online</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted">Members who said they&apos;re on this game right now. Message one to team up.</p>
+            </section>
+          )}
+
+          <section className="card p-5">
             <h2 className="mb-3 font-bold">Discussion</h2>
             <ul className="space-y-2">
               {threads.map((t) => (
                 <li key={t.id}>
-                  <Link href={`/forums/thread/${t.id}`} className="block px-2 py-1.5 hover:bg-surface-2">
+                  <Link href={`/forums/thread/${t.id}`} className="block rounded-md px-2 py-1.5 hover:bg-surface-2">
                     <div className="truncate text-sm font-semibold">{t.title}</div>
                     <div className="text-xs text-muted">
                       {t.postCount - 1} replies · {timeAgo(t.lastPostAt)}
@@ -282,7 +368,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
               <ul className="space-y-2">
                 {dlcs.map((d) => (
                   <li key={d.id}>
-                    <Link href={`/games/${game.slug}/dlc/${d.psnGroupId}`} className="flex items-center justify-between rounded-sm px-2 py-1.5 hover:bg-surface-2">
+                    <Link href={`/games/${game.slug}/dlc/${d.psnGroupId}`} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-surface-2">
                       <span className="font-semibold">{d.name}</span>
                       <span className="text-xs text-muted">{d.releaseDate ? formatDate(d.releaseDate, { month: "short", year: "numeric" }) : ""}</span>
                     </Link>
@@ -292,41 +378,50 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             </section>
           )}
 
-          {game.hasOnlineTrophies && (
-            <section className="card p-5">
-              <h2 className="mb-3 font-bold">Upcoming sessions</h2>
-              <ul className="space-y-2 text-sm">
-                {sessions.map((s) => (
-                  <li key={s.id}>
-                    <Link href={`/sessions#${s.id}`} className="block rounded-sm px-2 py-1.5 hover:bg-surface-2">
-                      <div className="font-semibold">{s.title}</div>
-                      <div className="text-xs text-muted">
-                        {formatDate(s.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {s._count.members}/{s.slots}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-                {sessions.length === 0 && <li className="text-muted">None scheduled.</li>}
-              </ul>
-              <Link href={`/sessions?new=${game.id}`} className="btn-ghost mt-4 w-full">Host a session</Link>
-            </section>
-          )}
-
           <section className="card p-5">
-            <h2 className="mb-3 font-bold">Recent platinums</h2>
-            <ul className="space-y-2.5">
-              {platEarners.map((p) => (
-                <li key={p.id} className="flex items-center gap-2.5 text-sm">
-                  <Avatar name={p.user.psn?.onlineId ?? p.user.username} hue={p.user.avatarHue} url={p.user.psn?.avatarUrl} size={28} />
-                  <Link href={`/u/${p.user.username}/${game.slug}`} className="flex-1 truncate font-semibold hover:text-accent-text">
-                    {p.user.psn?.onlineId ?? p.user.username} <span className="text-xs">{flag(p.user.country)}</span>
+            <h2 className="mb-3 font-bold">Upcoming sessions</h2>
+            <ul className="space-y-2 text-sm">
+              {sessions.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/sessions/${s.id}`} className="block rounded-md px-2 py-1.5 hover:bg-surface-2">
+                    <div className="font-semibold">{s.title}</div>
+                    <div className="text-xs text-muted">
+                      {formatDate(s.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {s._count.members}/{s.slots}
+                    </div>
                   </Link>
-                  <span className="text-xs text-muted">{formatDate(p.platinumAt, { day: "numeric", month: "short" })}</span>
                 </li>
               ))}
-              {platEarners.length === 0 && <li className="text-sm text-muted">No member has the platinum yet.</li>}
+              {sessions.length === 0 && <li className="text-muted">None scheduled.</li>}
+            </ul>
+            <Link href={`/sessions?new=${game.id}`} className="btn-ghost mt-4 w-full">Host a session</Link>
+          </section>
+
+          <section className="card p-5">
+            <h2 className="mb-3 font-bold">Recent players</h2>
+            <ul className="space-y-2.5">
+              {players.map((p) => (
+                <li key={p.key} className="flex items-center gap-2.5 text-sm">
+                  <Avatar name={p.name} hue={p.avatarHue} url={p.avatarUrl} size={28} />
+                  <Link href={p.href} className="min-w-0 flex-1 truncate font-semibold hover:underline hover:underline-offset-4">
+                    {p.name} <span className="text-xs">{flag(p.country)}</span>
+                  </Link>
+                  {p.hasPlatinum && <TrophyIcon type="PLATINUM" size={16} />}
+                  <span className="shrink-0 text-xs tabular-nums text-muted">
+                    {p.progress}% · {timeAgo(p.at)}
+                  </span>
+                </li>
+              ))}
+              {players.length === 0 && <li className="text-sm text-muted">Nobody we track has played this yet.</li>}
             </ul>
           </section>
+
+          {isAdmin(viewer) && (
+            <section className="card p-5">
+              <h2 className="mb-1 font-bold">Admin: obtainable?</h2>
+              <p className="mb-3 text-xs text-muted">Flag the list if servers shut down or a trophy is glitched. This applies to this trophy list only.</p>
+              <UnobtainableForm gameId={game.id} unobtainable={game.unobtainable} reason={game.unobtainableReason} />
+            </section>
+          )}
         </aside>
       </div>
     </div>

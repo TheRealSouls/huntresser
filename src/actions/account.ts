@@ -13,6 +13,7 @@ import { toPsnError } from "@/lib/psn/real";
 import { getProvider, SyncCooldownError, syncUntilDone, syncUser } from "@/lib/psn/sync";
 import { rateLimit } from "@/lib/rate-limit";
 import { isDemoAccount } from "@/lib/demo";
+import { PROFILE_ACCENTS, streamLink } from "@/lib/profile-themes";
 import { refreshEstimates } from "@/lib/estimates";
 import type { FormState } from "./auth";
 
@@ -25,12 +26,54 @@ export async function updateProfile(_: FormState, fd: FormData): Promise<FormSta
       .trim()
       .slice(0, 280) || null;
   const country = String(fd.get("country") ?? "");
+
+  // Stream links: only real links to the right sites are kept.
+  const given = (k: string) => String(fd.get(k) ?? "").trim();
+  const youtubeUrl = streamLink(given("youtubeUrl"), ["youtube.com", "youtu.be"]);
+  const twitchUrl = streamLink(given("twitchUrl"), ["twitch.tv"]);
+  const streamUrl = streamLink(given("streamUrl"));
+  if (given("youtubeUrl") && !youtubeUrl) return { error: "That doesn't look like a YouTube link." };
+  if (given("twitchUrl") && !twitchUrl) return { error: "That doesn't look like a Twitch link." };
+  if (given("streamUrl") && !streamUrl) return { error: "The other streaming link isn't a valid web address." };
+
+  const accent = given("profileAccent");
+  const allow = given("allowMessages");
+  // The banner is art from one of the member's own games.
+  const bannerId = given("bannerGameId");
+  const banner = bannerId ? await prisma.userGame.findUnique({ where: { userId_gameId: { userId: user.id, gameId: bannerId } }, select: { gameId: true } }) : null;
+
   await prisma.user.update({
     where: { id: user.id },
-    data: { bio, country: country in COUNTRIES ? country : null },
+    data: {
+      bio,
+      country: country in COUNTRIES ? country : null,
+      youtubeUrl,
+      twitchUrl,
+      streamUrl,
+      profileAccent: accent in PROFILE_ACCENTS ? accent : "",
+      allowMessages: ["EVERYONE", "FRIENDS", "NOBODY"].includes(allow) ? allow : "EVERYONE",
+      bannerGameId: banner?.gameId ?? null,
+    },
   });
   revalidatePath(`/u/${user.username}`);
   return { ok: "Profile saved." };
+}
+
+/** The Trophy Vault: up to five of the member's earned trophies, shown at the top of their profile. */
+export async function updateVault(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const ids = [...new Set(fd.getAll("trophyIds").map(String).filter(Boolean))];
+  if (ids.length > 5) return { error: "The vault holds five trophies. Untick some first." };
+  // Only trophies they've actually earned.
+  const earned = await prisma.userTrophy.findMany({ where: { userId: user.id, trophyId: { in: ids } }, select: { trophyId: true } });
+  const ok = new Set(earned.map((e) => e.trophyId));
+  const keep = ids.filter((id) => ok.has(id));
+  await prisma.$transaction([
+    prisma.vaultTrophy.deleteMany({ where: { userId: user.id } }),
+    prisma.vaultTrophy.createMany({ data: keep.map((trophyId, position) => ({ userId: user.id, trophyId, position })) }),
+  ]);
+  revalidatePath(`/u/${user.username}`);
+  return { ok: keep.length ? `Vault saved with ${keep.length} troph${keep.length === 1 ? "y" : "ies"}.` : "Vault emptied." };
 }
 
 const privacySchema = z.object({

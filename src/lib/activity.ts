@@ -110,13 +110,15 @@ export async function trendingGameIds(since: Date, limit = 6) {
 
 /** Headline numbers: everyone we know about, not only members. */
 export async function siteTotals() {
-  const [players, sums, users] = await Promise.all([
+  const [players, sums, users, games] = await Promise.all([
     prisma.psnPlayer.count({ where: { hidden: false, trophiesPrivate: false } }),
     prisma.psnPlayer.aggregate({
       where: { hidden: false, trophiesPrivate: false },
       _sum: { platinum: true, gold: true, silver: true, bronze: true },
     }),
     prisma.user.findMany({ select: { id: true, psn: { select: { accountId: true } } } }),
+    // One game per title: its PS4, PS5 and regional lists count once.
+    prisma.game.findMany({ distinct: ["titleKey"], select: { id: true } }).then((g) => g.length),
   ]);
   // Members without a PSN summary (not linked, not synced yet, or demo mode) count from their synced trophies.
   const summarised = new Set(
@@ -134,6 +136,8 @@ export async function siteTotals() {
   ]);
   const s = sums._sum;
   return {
+    members: users.length,
+    games,
     hunters: players + others.length,
     trophies: (s.platinum ?? 0) + (s.gold ?? 0) + (s.silver ?? 0) + (s.bronze ?? 0) + otherTrophies,
     platinums: (s.platinum ?? 0) + otherPlats,
@@ -232,4 +236,61 @@ export async function heroCovers(take: number) {
     select: { id: true, title: true, iconUrl: true, coverHue: true },
   });
   return games;
+}
+
+/**
+ * Who played a trophy list most recently: members (by their last trophy on
+ * it) and tracked PSN players (by PSN's last-updated time), newest first.
+ * A member who is also tracked shows once, as the member.
+ */
+export async function recentPlayers(gameId: string, take: number) {
+  const excluded = await privateMemberAccounts();
+  const [members, tracked] = await Promise.all([
+    prisma.userGame.findMany({
+      where: { gameId, lastEarned: { not: null }, user: { profileVisibility: "PUBLIC", showActivity: true } },
+      orderBy: { lastEarned: "desc" },
+      take,
+      select: {
+        progress: true,
+        hasPlatinum: true,
+        lastEarned: true,
+        user: { select: { username: true, country: true, avatarHue: true, psn: { select: { onlineId: true, avatarUrl: true, accountId: true } } } },
+      },
+    }),
+    prisma.psnPlayerTitle.findMany({
+      where: { gameId, player: visiblePlayer(excluded) },
+      orderBy: { lastUpdated: "desc" },
+      take: take * 2,
+      select: { progress: true, hasPlatinum: true, lastUpdated: true, player: { select: { accountId: true, onlineId: true, avatarUrl: true, country: true } } },
+    }),
+  ]);
+  const memberAccounts = new Set(members.flatMap((m) => (m.user.psn?.accountId ? [m.user.psn.accountId] : [])));
+  return [
+    ...members.map((m) => ({
+      key: `u:${m.user.username}`,
+      name: m.user.psn?.onlineId ?? m.user.username,
+      href: `/u/${m.user.username}`,
+      avatarUrl: m.user.psn?.avatarUrl ?? null,
+      avatarHue: m.user.avatarHue,
+      country: m.user.country,
+      progress: m.progress,
+      hasPlatinum: m.hasPlatinum,
+      at: m.lastEarned!,
+    })),
+    ...tracked
+      .filter((t) => !memberAccounts.has(t.player.accountId))
+      .map((t) => ({
+        key: `p:${t.player.accountId}`,
+        name: t.player.onlineId,
+        href: `/psn/${encodeURIComponent(t.player.onlineId)}`,
+        avatarUrl: t.player.avatarUrl,
+        avatarHue: 0,
+        country: t.player.country,
+        progress: t.progress,
+        hasPlatinum: t.hasPlatinum,
+        at: t.lastUpdated,
+      })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, take);
 }

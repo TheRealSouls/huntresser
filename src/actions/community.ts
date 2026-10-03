@@ -46,7 +46,7 @@ export async function voteTip(fd: FormData) {
 // ─── Guides ──────────────────────────────────────────────────────────────────
 
 const stepSchema = z.object({
-  kind: z.enum(["ROADMAP", "MISSABLE", "COLLECTIBLE", "SPEEDRUN"]),
+  kind: z.enum(["ROADMAP", "MISSABLE", "COLLECTIBLE", "SPEEDRUN", "TROPHY"]),
   title: z.string().trim().min(2, "Give this step a title.").max(120, "Step titles must be under 120 characters."),
   body: z.string().trim().min(2, "Add some details to this step.").max(4000, "Step details must be under 4,000 characters."),
   trophyId: z.string().optional().nullable(),
@@ -117,6 +117,18 @@ export async function createGuide(_: FormState, fd: FormData): Promise<FormState
   redirect(`/guides/${slug}`);
 }
 
+/** Saves a guide to the member's favourites, or removes it. */
+export async function toggleGuideFavourite(fd: FormData) {
+  const user = await requireUser();
+  const guide = await prisma.guide.findUnique({ where: { id: String(fd.get("guideId")) }, select: { id: true, slug: true } });
+  if (!guide) return;
+  const key = { userId_guideId: { userId: user.id, guideId: guide.id } };
+  if (await prisma.guideFavourite.findUnique({ where: key })) await prisma.guideFavourite.delete({ where: key });
+  else await prisma.guideFavourite.create({ data: { userId: user.id, guideId: guide.id } });
+  revalidatePath(`/guides/${guide.slug}`);
+  revalidatePath(`/u/${user.username}`);
+}
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 
 const sessionSchema = z.object({
@@ -132,11 +144,43 @@ export async function createSession(_: FormState, fd: FormData): Promise<FormSta
   const user = await requireUser();
   const parsed = sessionSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  // Trophies the session is going for: only ones from the chosen game's list count.
+  const wanted = fd.getAll("trophyIds").map(String).filter(Boolean).slice(0, 30);
+  const trophies = wanted.length
+    ? await prisma.trophy.findMany({ where: { id: { in: wanted }, gameId: parsed.data.gameId }, select: { id: true } })
+    : [];
   const s = await prisma.session.create({
-    data: { ...parsed.data, hostId: user.id, members: { create: { userId: user.id } } },
+    data: {
+      ...parsed.data,
+      hostId: user.id,
+      members: { create: { userId: user.id } },
+      trophies: { create: trophies.map((t) => ({ trophyId: t.id })) },
+    },
   });
   revalidatePath("/sessions");
-  redirect(`/sessions#${s.id}`);
+  revalidatePath("/");
+  redirect(`/sessions/${s.id}`);
+}
+
+export async function addSessionComment(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const sessionId = String(fd.get("sessionId"));
+  const body = String(fd.get("body") ?? "").trim();
+  if (body.length < 2) return { error: "Write something first." };
+  if (body.length > 1000) return { error: "Keep comments under 1,000 characters." };
+  if (!(await prisma.session.findUnique({ where: { id: sessionId }, select: { id: true } }))) return { error: "That session was cancelled." };
+  await prisma.sessionComment.create({ data: { sessionId, authorId: user.id, body } });
+  revalidatePath(`/sessions/${sessionId}`);
+  return { ok: "Comment posted." };
+}
+
+export async function deleteSessionComment(fd: FormData) {
+  const user = await requireUser();
+  const c = await prisma.sessionComment.findUnique({ where: { id: String(fd.get("commentId")) }, include: { session: { select: { hostId: true } } } });
+  // The author, the session's host or an admin can remove a comment.
+  if (!c || (c.authorId !== user.id && c.session.hostId !== user.id && user.role !== "ADMIN")) return;
+  await prisma.sessionComment.delete({ where: { id: c.id } });
+  revalidatePath(`/sessions/${c.sessionId}`);
 }
 
 export async function toggleSession(fd: FormData) {
@@ -146,10 +190,16 @@ export async function toggleSession(fd: FormData) {
   if (!session) return;
   const member = await prisma.sessionMember.findUnique({ where: { sessionId_userId: { sessionId, userId: user.id } } });
   if (member) {
-    if (session.hostId === user.id) await prisma.session.delete({ where: { id: sessionId } });
-    else await prisma.sessionMember.delete({ where: { sessionId_userId: { sessionId, userId: user.id } } });
+    if (session.hostId === user.id) {
+      // The host leaving cancels the session.
+      await prisma.session.delete({ where: { id: sessionId } });
+      revalidatePath("/sessions", "layout");
+      revalidatePath("/");
+      redirect("/sessions");
+    }
+    await prisma.sessionMember.delete({ where: { sessionId_userId: { sessionId, userId: user.id } } });
   } else if (session._count.members < session.slots) {
     await prisma.sessionMember.create({ data: { sessionId, userId: user.id } });
   }
-  revalidatePath("/sessions");
+  revalidatePath("/sessions", "layout");
 }

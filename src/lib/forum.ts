@@ -6,6 +6,13 @@ export const POSTS_PER_PAGE = 20;
 
 export const isAdmin = (user: { role: string } | null | undefined) => user?.role === "ADMIN";
 
+/** The tabs across the top of the forum pages. */
+export const FORUM_TABS = [
+  { key: "forums", label: "Forums", href: "/forums" },
+  { key: "rules", label: "Forum rules", href: "/forums/rules" },
+  { key: "staff", label: "Forum staff", href: "/forums/staff" },
+];
+
 /** Shown in place of a deleted account's name. */
 export const DELETED_USER = "deleted user";
 
@@ -58,8 +65,8 @@ export async function forumIndex() {
 
 /** "general-discussion", or "general-discussion-2" if taken. */
 export async function uniqueSectionSlug(base: string, exceptId?: string) {
-  // /forums/new, /forums/manage and /forums/thread are pages of their own.
-  if (!base || ["new", "manage", "thread"].includes(base)) base = `${base || "section"}-forum`;
+  // These are pages of their own under /forums.
+  if (!base || ["new", "manage", "thread", "rules", "staff", "user"].includes(base)) base = `${base || "section"}-forum`;
   let slug = base;
   for (let i = 2; ; i++) {
     const hit = await prisma.forumSection.findUnique({ where: { slug }, select: { id: true } });

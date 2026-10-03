@@ -26,7 +26,8 @@
     "igdb:import": "tsx scripts/igdb-import.ts",
     "user:role": "tsx scripts/user-role.ts",
     "psn:lists": "tsx scripts/psn-lists.ts",
-    "db:trophy-slugs": "tsx scripts/backfill-trophy-slugs.ts"
+    "db:trophy-slugs": "tsx scripts/backfill-trophy-slugs.ts",
+    "forums:seed": "tsx scripts/forums-seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

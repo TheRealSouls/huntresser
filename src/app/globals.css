@@ -180,3 +180,17 @@ body {
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
 }
+
+/* Accent colours members can pick for their own profile page (Settings,
+   Profile). Each keeps white text at 4.5:1 on the accent, and the text
+   shade at 4.5:1 on every surface, light and dark. */
+.profile-accent-blue { --color-accent: #1f63d6; --color-accent-hi: #184fae; --color-accent-text: #1b57be; }
+.profile-accent-green { --color-accent: #1f7a3d; --color-accent-hi: #186230; --color-accent-text: #1c6f37; }
+.profile-accent-teal { --color-accent: #0f766e; --color-accent-hi: #0b5d57; --color-accent-text: #0f6b64; }
+.profile-accent-gold { --color-accent: #8a6100; --color-accent-hi: #6f4e00; --color-accent-text: #7d5800; }
+.profile-accent-slate { --color-accent: #475569; --color-accent-hi: #374252; --color-accent-text: #3f4c5e; }
+:root[data-theme="dark"] .profile-accent-blue { --color-accent-text: #8ab6ff; }
+:root[data-theme="dark"] .profile-accent-green { --color-accent-text: #74d490; }
+:root[data-theme="dark"] .profile-accent-teal { --color-accent-text: #63d1c6; }
+:root[data-theme="dark"] .profile-accent-gold { --color-accent-text: #e6b94f; }
+:root[data-theme="dark"] .profile-accent-slate { --color-accent-text: #b6c1d1; }

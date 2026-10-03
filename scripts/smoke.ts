@@ -64,6 +64,11 @@ async function main() {
     { path: "/search?q=GamingWithFlacy&type=players" },
     { path: "/sessions" },
     { path: "/forums", contains: "Forums" },
+    { path: "/forums/rules", contains: "Be decent" },
+    { path: "/forums/staff", contains: "Forum staff" },
+    { path: "/community", contains: "Community activity" },
+    { path: "/clubs", contains: "Start a club" },
+    { path: "/messages", status: 307 },
     { path: "/compare" },
     { path: "/terms" },
     { path: "/privacy" },
@@ -85,6 +90,13 @@ async function main() {
     { path: "/guides/new", auth: true, contains: "Write a trophy guide" },
     { path: "/sessions", auth: true, contains: "Host a session" },
     { path: "/forums/new", auth: true },
+    { path: "/messages", auth: true, contains: "New message" },
+    { path: "/community?tab=following", auth: true },
+    { path: "/leaderboards", auth: true, contains: "rank" },
+    { path: `/forums/user/${demo.username}` },
+    { path: `/u/${demo.username}?tab=log`, auth: true },
+    { path: `/u/${demo.username}?tab=saved`, auth: true },
+    { path: `/u/${demo.username}?show=platinum&platform=PS5&sort=title`, auth: true },
     { path: "/forums/manage", auth: true },
     { path: `/u/${demo.username}`, auth: true },
     { path: "/api/account/export", auth: true, contains: DEMO_EMAIL },
@@ -106,7 +118,7 @@ async function main() {
     );
   }
   if (player) checks.push({ path: `/psn/${encodeURIComponent(player.onlineId)}` }, { path: `/psn/${encodeURIComponent(player.onlineId)}?page=2` });
-  if (session_) checks.push({ path: `/sessions#${session_.id}` });
+  if (session_) checks.push({ path: `/sessions/${session_.id}`, contains: "Comments" });
   if (section) checks.push({ path: `/forums/${section.slug}` });
   if (thread) checks.push({ path: `/forums/thread/${thread.id}` });
 

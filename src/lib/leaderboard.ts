@@ -313,3 +313,46 @@ async function memberBoard(opts: Opts & { metric: Metric }, limit: number): Prom
     games: Number(r.games),
   }));
 }
+
+export type ViewerRanks = {
+  points: number;
+  global: { rank: number; of: number };
+  country: { code: string; rank: number; of: number } | null;
+};
+
+/**
+ * Where a signed-in member stands on the all-time trophy points board,
+ * worldwide and in their country. Uses Sony's totals when their PSN account
+ * is tracked (everyone who has synced is), otherwise the members' board.
+ * Null if they have no trophies to rank yet.
+ */
+export async function viewerRanks(user: { id: string; country: string | null; psn: { accountId: string | null } | null }): Promise<ViewerRanks | null> {
+  const visible = { hidden: false, trophiesPrivate: false } as const;
+  const me = user.psn?.accountId ? await prisma.psnPlayer.findUnique({ where: { accountId: user.psn.accountId } }) : null;
+  if (me && !me.hidden && !me.trophiesPrivate) {
+    const code = me.country ?? user.country;
+    const [ahead, total, aheadHere, totalHere] = await Promise.all([
+      prisma.psnPlayer.count({ where: { ...visible, points: { gt: me.points } } }),
+      prisma.psnPlayer.count({ where: visible }),
+      code ? prisma.psnPlayer.count({ where: { ...visible, country: code, points: { gt: me.points } } }) : 0,
+      code ? prisma.psnPlayer.count({ where: { ...visible, country: code } }) : 0,
+    ]);
+    return {
+      points: me.points,
+      global: { rank: ahead + 1, of: total },
+      country: code ? { code, rank: aheadHere + 1, of: Math.max(totalHere, 1) } : null,
+    };
+  }
+
+  // Not tracked on PSN (demo mode, or never synced): rank among members.
+  const board = await getLeaderboard({ metric: "points", period: "all", scope: "global", limit: 10_000 });
+  const mine = board.find((r) => r.userId === user.id);
+  if (!mine) return null;
+  const here = user.country ? board.filter((r) => r.country === user.country) : [];
+  const hereRank = here.findIndex((r) => r.userId === user.id);
+  return {
+    points: mine.points,
+    global: { rank: mine.rank, of: board.length },
+    country: user.country && hereRank >= 0 ? { code: user.country, rank: hereRank + 1, of: here.length } : null,
+  };
+}

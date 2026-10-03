@@ -6,6 +6,7 @@ import { ProgressBar, RarityBadge } from "./ui";
 import { TROPHY_ORDER, TROPHY_POINTS, type TrophyType } from "@/lib/trophies";
 import { formatDate, secureUrl } from "@/lib/utils";
 import { trophyHref } from "@/lib/trophy-slug";
+import { LocalTime } from "./LocalTime";
 
 type T = {
   id: string;
@@ -115,10 +116,7 @@ export function TrophyList({
                       <div className="min-w-0 flex-1">
                         <SpoilerSwap concealed={<RevealButton />} focusOnReveal>
                           <Link href={t.slug ? trophyHref(gameSlug, t.slug) : `/trophies/${t.id}`} className="group block">
-                            <div className="flex items-center gap-1.5 font-semibold group-hover:underline group-hover:underline-offset-4">
-                              {t.iconUrl && <TrophyIcon type={t.type} size={14} />}
-                              {t.name}
-                            </div>
+                            <div className="font-semibold group-hover:underline group-hover:underline-offset-4">{t.name}</div>
                             <div className="text-sm text-muted">{t.description}</div>
                           </Link>
                         </SpoilerSwap>
@@ -138,9 +136,18 @@ export function TrophyList({
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
-                        <RarityBadge rate={t.earnedRate} />
+                        {/* Grade, big and on the right next to the rarity, so the list scans by trophy type. */}
+                        <div className="flex items-center gap-2.5">
+                          <RarityBadge rate={t.earnedRate} />
+                          <span className="flex flex-col items-center">
+                            <TrophyIcon type={t.type} size={32} dim={dim} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">{t.type.toLowerCase()}</span>
+                          </span>
+                        </div>
                         {at ? (
-                          <span className="text-xs text-good">Earned {formatDate(at)}</span>
+                          <span className="text-xs text-good">
+                            Earned <LocalTime date={at} seconds />
+                          </span>
                         ) : earned ? (
                           <span className="text-xs text-faint">{ownerLabel ? `${ownerLabel} hasn't earned this` : "Not earned"}</span>
                         ) : null}

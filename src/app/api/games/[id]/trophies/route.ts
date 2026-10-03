@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { ensureGameTrophies } from "@/lib/psn/catalogue";
 import { getProvider, isDemoMode } from "@/lib/psn/sync";
 
-/** Trophies of one list, for linking guide steps. Fetches the list from PSN first if we don't have it yet. */
+/** Trophies of one list, for guide steps, trophy-by-trophy notes and session targets. Fetches the list from PSN first if we don't have it yet. */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const game = await prisma.game.findUnique({ where: { id } });
@@ -21,7 +21,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const trophies = await prisma.trophy.findMany({
     where: { gameId: id },
     orderBy: { psnTrophyId: "asc" },
-    select: { id: true, name: true, type: true, hidden: true },
+    select: { id: true, name: true, description: true, type: true, hidden: true },
   });
   return NextResponse.json({ trophies, error });
 }

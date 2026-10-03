@@ -19,12 +19,16 @@ export function UserMenu({
   name,
   username,
   pending,
+  unread,
   admin,
 }: {
   avatar: React.ReactNode;
   name: string;
   username: string;
+  /** Pending friend requests. */
   pending: number;
+  /** Conversations with unread messages. */
+  unread: number;
   admin: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -50,9 +54,13 @@ export function UserMenu({
     };
   }, [open]);
 
+  const count = (n: number) => (n > 0 ? <span className="ml-auto rounded-md bg-accent px-1.5 text-xs font-bold text-white">{n}</span> : null);
+  const alerts = pending + unread;
   const items: [string, string, React.ReactNode?][] = [
     [`/u/${username}`, "My profile"],
-    ["/friends", "Friends", pending > 0 ? <span className="ml-auto rounded-md bg-accent px-1.5 text-xs font-bold text-white">{pending}</span> : null],
+    ["/messages", "Messages", count(unread)],
+    ["/friends", "Friends", count(pending)],
+    ["/clubs", "Clubs"],
     ["/compare", "Compare hunters"],
     ["/guides/new", "Write a guide"],
     ["/settings", "Settings and PSN"],
@@ -73,14 +81,14 @@ export function UserMenu({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls="account-menu"
-        aria-label={`Account menu for ${name}${pending > 0 ? `, ${pending} friend request${pending === 1 ? "" : "s"}` : ""}`}
+        aria-label={`Account menu for ${name}${unread > 0 ? `, ${unread} unread conversation${unread === 1 ? "" : "s"}` : ""}${pending > 0 ? `, ${pending} friend request${pending === 1 ? "" : "s"}` : ""}`}
         className="flex items-center gap-2.5 rounded-lg border border-line bg-surface py-1 pl-1 pr-2.5 hover:border-faint"
       >
         <span className="relative">
           {avatar}
-          {pending > 0 && (
+          {alerts > 0 && (
             <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
-              {pending}
+              {alerts}
             </span>
           )}
         </span>

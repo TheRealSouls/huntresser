@@ -103,6 +103,48 @@ export const SparkIcon = (p: P) => (
   </Icon>
 );
 
+export const SyncIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M16.5 10a6.5 6.5 0 0 1-11.6 4M3.5 10a6.5 6.5 0 0 1 11.6-4" />
+    <path d="M15.5 2.5V6h-3.5M4.5 17.5V14H8" />
+  </Icon>
+);
+
+export const HeartIcon = (p: P & { filled?: boolean }) => (
+  <Icon size={p.size} className={p.className}>
+    <path
+      d="M10 16.5s-6.5-3.7-6.5-8.2A3.6 3.6 0 0 1 10 6.1a3.6 3.6 0 0 1 6.5 2.2c0 4.5-6.5 8.2-6.5 8.2Z"
+      fill={p.filled ? "currentColor" : "none"}
+    />
+  </Icon>
+);
+
+export const ShareIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M10 12.5V3M6.5 6.5 10 3l3.5 3.5M4 10.5V16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-5.5" />
+  </Icon>
+);
+
+export const ChatIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M3 5a1.5 1.5 0 0 1 1.5-1.5h11A1.5 1.5 0 0 1 17 5v7a1.5 1.5 0 0 1-1.5 1.5H9l-4 3.5v-3.5h-.5A1.5 1.5 0 0 1 3 12V5Z" />
+  </Icon>
+);
+
+export const ClockIcon = (p: P) => (
+  <Icon {...p}>
+    <circle cx="10" cy="10" r="7" />
+    <path d="M10 6v4.2l2.8 1.8" />
+  </Icon>
+);
+
+export const EyeIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10Z" />
+    <circle cx="10" cy="10" r="2.5" />
+  </Icon>
+);
+
 export const FlameIcon = (p: P) => (
   <Icon {...p}>
     <path d="M10 17.5a5.5 5.5 0 0 0 5.5-5.5c0-3.5-3-5.5-3.5-9-2.2 1.3-3.2 3.3-3 5.5-1-.5-1.7-1.5-2-2.5C5.6 7.6 4.5 9.6 4.5 12a5.5 5.5 0 0 0 5.5 5.5Z" />

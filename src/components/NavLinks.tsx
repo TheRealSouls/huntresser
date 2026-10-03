@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/games", label: "Games" },
   { href: "/guides", label: "Guides" },
   { href: "/forums", label: "Forums" },
+  { href: "/community", label: "Community", short: "Social" },
   { href: "/leaderboards", label: "Leaderboards", short: "Boards" },
   { href: "/sessions", label: "Sessions" },
 ];
@@ -17,7 +18,8 @@ export function NavLinks() {
   return (
     <nav className="hidden h-full items-stretch lg:flex" aria-label="Main">
       {LINKS.map((l) => {
-        const active = path === l.href || path.startsWith(`${l.href}/`);
+        // Clubs live under Community.
+        const active = path === l.href || path.startsWith(`${l.href}/`) || (l.href === "/community" && path.startsWith("/clubs"));
         return (
           <Link
             key={l.href}
@@ -48,7 +50,7 @@ export function MobileNav() {
             href={l.href}
             aria-current={active ? "page" : undefined}
             className={clsx(
-              "flex-1 border-t-2 py-3 text-center text-[11px] font-semibold",
+              "min-w-0 flex-1 truncate border-t-2 py-3 text-center text-[10px] font-semibold sm:text-[11px]",
               active ? "border-accent text-text" : "border-transparent text-muted",
             )}
           >

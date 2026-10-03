@@ -30,6 +30,18 @@ model User {
   role               String   @default("USER")
   // light | dark. The site is light unless the member picks dark in Settings; it never follows the device.
   theme              String   @default("light")
+  // Profile extras. The banner is artwork from one of the member's games (no uploads).
+  bannerGameId       String?
+  // Accent colour for the member's own profile page: "" (site red) or a preset key (see src/lib/profile-themes.ts).
+  profileAccent      String   @default("")
+  youtubeUrl         String?
+  twitchUrl          String?
+  streamUrl          String?
+  // "Playing now", set by the member; shown until nowPlayingUntil.
+  nowPlayingGameId   String?
+  nowPlayingUntil    DateTime?
+  // EVERYONE | FRIENDS (friends and people they follow) | NOBODY
+  allowMessages      String   @default("EVERYONE")
   createdAt          DateTime @default(now())
 
   psn              PsnAccount?
@@ -46,6 +58,19 @@ model User {
   sessionSlots     SessionMember[]
   forumThreads     ForumThread[]
   forumPosts       ForumPost[]
+  bannerGame       Game?                @relation("banner", fields: [bannerGameId], references: [id], onDelete: SetNull)
+  nowPlayingGame   Game?                @relation("nowPlaying", fields: [nowPlayingGameId], references: [id], onDelete: SetNull)
+  gameRatings      GameRating[]
+  guideFavourites  GuideFavourite[]
+  vault            VaultTrophy[]
+  sessionComments  SessionComment[]
+  following        Follow[]             @relation("follower")
+  followers        Follow[]             @relation("following")
+  posts            Post[]
+  ownedClubs       Club[]
+  clubMemberships  ClubMember[]
+  conversations    ConversationMember[]
+  messages         Message[]
 }
 
 model PsnAccount {
@@ -213,6 +238,12 @@ model Game {
   screenshots        String    @default("[]") // JSON array of image URLs / art seeds
   createdAt          DateTime  @default(now())
 
+  // Members' ratings (see GameRating). rating is the average out of 5.
+  rating             Float?
+  ratingCount        Int       @default(0)
+  // PLATINUM | COMPLETION when the platinum or 100% can't be earned any more (servers shut, glitched trophy). Set by admins.
+  unobtainable       String?
+  unobtainableReason String?
   // Trophies in the list according to PSN's game listings. When it grows past
   // what's stored (a DLC pack was added), the list is fetched again.
   definedTrophies    Int?
@@ -230,6 +261,9 @@ model Game {
   guides       Guide[]
   sessions     Session[]
   forumThreads ForumThread[]
+  ratings      GameRating[]
+  bannerOf     User[]        @relation("banner")
+  playingNow   User[]        @relation("nowPlaying")
 
   @@index([title])
   @@index([titleKey])
@@ -272,9 +306,11 @@ model Trophy {
 
   game    Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
   group   TrophyGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  earners UserTrophy[]
-  tips    Tip[]
-  steps   GuideStep[]
+  earners  UserTrophy[]
+  tips     Tip[]
+  steps    GuideStep[]
+  sessions SessionTrophy[]
+  vaults   VaultTrophy[]
 
   @@unique([gameId, psnTrophyId])
   @@unique([gameId, slug])
@@ -340,8 +376,9 @@ model Guide {
 
   game   Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
   author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  steps  GuideStep[]
-  tips   Tip[]
+  steps      GuideStep[]
+  tips       Tip[]
+  favourites GuideFavourite[]
 
   @@index([gameId])
 }
@@ -350,7 +387,7 @@ model GuideStep {
   id             String  @id @default(cuid())
   guideId        String
   order          Int
-  // ROADMAP | MISSABLE | COLLECTIBLE | SPEEDRUN
+  // ROADMAP | MISSABLE | COLLECTIBLE | SPEEDRUN | TROPHY (how to earn one trophy; trophyId is set)
   kind           String
   title          String
   body           String
@@ -403,11 +440,37 @@ model Session {
   slots       Int      @default(4)
   createdAt   DateTime @default(now())
 
-  host    User            @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  game    Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  members SessionMember[]
+  host     User             @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  game     Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  members  SessionMember[]
+  trophies SessionTrophy[]
+  comments SessionComment[]
 
   @@index([startsAt])
+}
+
+// Trophies a session is going for, picked from the game's list.
+model SessionTrophy {
+  sessionId String
+  trophyId  String
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  trophy  Trophy  @relation(fields: [trophyId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, trophyId])
+}
+
+model SessionComment {
+  id        String   @id @default(cuid())
+  sessionId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }
 
 model SessionMember {
@@ -495,4 +558,139 @@ model ForumPost {
 
   @@index([threadId, createdAt])
   @@index([authorId])
+}
+
+// ─── Ratings, favourites, the Trophy Vault ──────────────────────────────────
+
+// One member's view of a game: how hard the platinum is (1 to 10) and how good the game is (1 to 5).
+model GameRating {
+  userId     String
+  gameId     String
+  difficulty Int?
+  rating     Int?
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@id([userId, gameId])
+  @@index([gameId])
+}
+
+model GuideFavourite {
+  userId    String
+  guideId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide Guide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@id([userId, guideId])
+}
+
+// Up to five earned trophies a member shows off at the top of their profile.
+model VaultTrophy {
+  userId   String
+  trophyId String
+  position Int
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trophy Trophy @relation(fields: [trophyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trophyId])
+}
+
+// ─── Community: follows, updates, clubs, messages ───────────────────────────
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+// A short update on the community page, optionally posted in a club.
+model Post {
+  id        String   @id @default(cuid())
+  authorId  String
+  clubId    String?
+  body      String
+  createdAt DateTime @default(now())
+
+  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  club   Club? @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([authorId, createdAt])
+  @@index([clubId, createdAt])
+}
+
+model Club {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String   @default("")
+  ownerId     String
+  createdAt   DateTime @default(now())
+
+  owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members ClubMember[]
+  posts   Post[]
+}
+
+model ClubMember {
+  clubId   String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([clubId, userId])
+  @@index([userId])
+}
+
+// Private messages. A conversation has two members, or more for a group chat.
+model Conversation {
+  id            String   @id @default(cuid())
+  // Group chats have a name; one-to-one conversations show the other person's.
+  title         String?
+  isGroup       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([lastMessageAt])
+}
+
+model ConversationMember {
+  conversationId String
+  userId         String
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  authorId       String?
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
 }
